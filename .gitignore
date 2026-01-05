@@ -1,4 +1,95 @@
+# ============================
+# 🔐 Environment & Secrets
+# ============================
 .env
+.env.*
+*.key
+*.pem
+
+# ============================
+# 🐍 Python
+# ============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# ============================
+# 🧪 Virtual Environments
+# ============================
 venv/
-# VS Code settings
+env/
+.venv/
+.virtualenv/
+pip-wheel-metadata/
+
+# ============================
+# 📊 Streamlit
+# ============================
+.streamlit/secrets.toml
+.streamlit/config.toml
+.streamlit/cache/
+.streamlit/static/
+
+# ============================
+# 🤖 ML / Forecast Artifacts
+# ============================
+models/
+checkpoints/
+*.joblib
+*.pkl
+*.h5
+*.onnx
+
+# ============================
+# 📈 Prophet / Forecast Outputs
+# ============================
+forecast_output/
+plots/
+*.html
+*.png
+*.jpg
+
+# ============================
+# 📄 Logs
+# ============================
+logs/
+*.log
+
+# ============================
+# 📊 Data (Keep only raw CSV if needed)
+# ============================
+data/processed/
+data/interim/
+*.parquet
+
+# ============================
+# 🧠 LLM / Cache
+# ============================
+.cache/
+.llm_cache/
+
+# ============================
+# 🧹 OS / Editor
+# ============================
+.DS_Store
+Thumbs.db
 .vscode/
+.idea/
+*.swp
+
+# ============================
+# 📦 Jupyter (if used)
+# ============================
+.ipynb_checkpoints/
+
+# ============================
+# 🚀 Deployment
+# ============================
+*.zip
+*.tar.gz
