@@ -2501,3 +2501,95 @@ Please retry in 34.987468339s. [links {
 2026-01-05 16:20:41,092 - ProphetModel - INFO - Running category-wise forecast for Toys
 2026-01-05 16:20:41,289 - ProphetModel - INFO - Running category-wise forecast for Electronics
 2026-01-05 16:20:41,512 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 16:38:32,681 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 16:38:32,695 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 16:38:32,718 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 16:38:34,531 - InsightsGenerator - INFO - Generating insights
+2026-01-05 16:38:34,532 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 16:38:35,188 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:38:35,493 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:38:35,767 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 16:38:36,020 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 16:38:36,292 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 16:38:36,528 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 16:38:36,810 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 16:38:47,780 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 16:38:47,787 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 16:38:47,802 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 16:38:49,664 - InsightsGenerator - INFO - Generating insights
+2026-01-05 16:38:49,665 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 16:38:49,691 - Gemini_LLM - INFO - LLM question received
+2026-01-05 16:38:57,247 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:38:57,497 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:38:57,704 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 16:38:57,905 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 16:38:58,103 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 16:38:58,306 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 16:38:58,558 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 16:42:56,223 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 16:42:56,231 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 16:42:56,269 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 16:42:58,290 - InsightsGenerator - INFO - Generating insights
+2026-01-05 16:42:58,291 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 16:42:58,514 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:42:58,814 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:42:59,019 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 16:42:59,219 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 16:42:59,421 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 16:42:59,661 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 16:42:59,926 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 16:43:35,871 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 16:43:35,874 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 16:43:35,885 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 16:43:37,803 - InsightsGenerator - INFO - Generating insights
+2026-01-05 16:43:37,803 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 16:43:38,097 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:43:38,354 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:43:38,572 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 16:43:38,763 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 16:43:38,954 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 16:43:39,160 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 16:43:39,382 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 16:46:33,112 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 16:46:33,114 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 16:46:33,126 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 16:46:34,974 - InsightsGenerator - INFO - Generating insights
+2026-01-05 16:46:34,975 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 16:46:42,151 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 16:46:42,154 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 16:46:42,165 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 16:46:44,032 - InsightsGenerator - INFO - Generating insights
+2026-01-05 16:46:44,033 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 16:46:44,241 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:46:44,586 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 16:46:44,780 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 16:46:44,990 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 16:46:45,203 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 16:46:45,458 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 16:46:45,724 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 17:12:29,227 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 17:12:29,232 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 17:12:29,248 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 17:12:32,198 - InsightsGenerator - INFO - Generating insights
+2026-01-05 17:12:32,199 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 17:12:32,245 - Gemini_LLM - INFO - LLM question received
+2026-01-05 17:12:40,101 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 17:12:40,459 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 17:12:40,776 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 17:12:41,089 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 17:12:41,407 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 17:12:41,666 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 17:12:42,036 - ProphetModel - INFO - Running what-if scenario analysis
+2026-01-05 17:20:04,367 - DataPreprocessing - INFO - Loading dataset
+2026-01-05 17:20:04,377 - DataPreprocessing - INFO - Starting preprocessing
+2026-01-05 17:20:04,397 - ProphetModel - INFO - Training Prophet with regressors
+2026-01-05 17:20:07,428 - InsightsGenerator - INFO - Generating insights
+2026-01-05 17:20:07,431 - InsightsGenerator - INFO - Insights generated successfully
+2026-01-05 17:20:07,605 - Gemini_LLM - INFO - LLM question received
+2026-01-05 17:20:15,845 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 17:20:16,234 - ProphetModel - INFO - Running category-wise forecast for Sports
+2026-01-05 17:20:16,594 - ProphetModel - INFO - Running category-wise forecast for Home Decor
+2026-01-05 17:20:16,879 - ProphetModel - INFO - Running category-wise forecast for Fashion
+2026-01-05 17:20:17,164 - ProphetModel - INFO - Running category-wise forecast for Toys
+2026-01-05 17:20:17,493 - ProphetModel - INFO - Running category-wise forecast for Electronics
+2026-01-05 17:20:17,772 - ProphetModel - INFO - Running what-if scenario analysis

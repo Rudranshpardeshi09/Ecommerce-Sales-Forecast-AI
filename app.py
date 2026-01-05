@@ -526,7 +526,7 @@ selected_col = st.selectbox(
 
 chart_type = st.radio(
     "Select visualization type",
-    ["Scatter", "Density", "Line (Trend)", "Histogram", "Bar (Binned Average)"],
+    ["Bar (Binned Average)", "Line (Trend)", "Histogram",  "Scatter", "Density"],
     horizontal=True,
     key="data_relationships_chart_type"
 )
