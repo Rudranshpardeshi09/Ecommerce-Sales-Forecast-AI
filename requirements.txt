@@ -1,0 +1,33 @@
+# Core Data Handling
+pandas
+numpy
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Time Series Forecasting
+prophet
+statsmodels
+
+
+# Machine Learning Utilities
+scikit-learn
+
+# Dashboard
+streamlit
+
+# LLM Integration
+openai
+google-generativeai
+langchain
+langchain-community
+
+# Utilities
+python-dotenv
+tqdm
+
+# Optional (for API & backend extension)
+fastapi
+uvicorn

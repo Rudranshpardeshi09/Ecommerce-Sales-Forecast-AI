@@ -1,0 +1,139 @@
+🔹 1. CORE SALES & TREND INSIGHTS
+
+Use these to understand what is happening.
+
+“What is the overall sales trend and how confident is the forecast?”
+
+“Are sales becoming more stable or more volatile over time?”
+
+“Which future periods show the highest uncertainty and why?”
+
+“What does the model predict for average daily and monthly sales going forward?”
+
+“Are there identifiable seasonal patterns influencing sales?”
+
+🔹 2. DRIVER ANALYSIS (PRICE, DISCOUNT, MARKETING)
+
+These reveal why sales behave the way they do.
+
+“Which factor has the strongest relationship with units sold?”
+
+“Is price acting as a demand suppressor or neutral factor?”
+
+“Does discount meaningfully increase demand, or is the effect weak?”
+
+“Is marketing spend associated with consistent sales uplift?”
+
+“Which variable should be prioritized for improving sales performance?”
+
+🔹 3. RELATIONSHIP EXPLORER QUESTIONS (PAIRWISE)
+
+These work perfectly with your two-dropdown relationship explainer.
+
+“Explain the relationship between units_sold and price.”
+
+“Explain the relationship between units_sold and discount.”
+
+“Explain the relationship between units_sold and marketing_spend.”
+
+“Is the relationship between discount and price strategic or reactive?”
+
+“Are any observed relationships strong enough to support decision-making?”
+
+🔹 4. CAUSAL & BUSINESS LOGIC QUESTIONS
+
+These prevent wrong conclusions (very important).
+
+“Does correlation here imply causation? Why or why not?”
+
+“Are discounts driving sales, or are they applied after demand changes?”
+
+“Is marketing spend leading sales growth or responding to it?”
+
+“Which relationships are associative rather than causal?”
+
+“What risks exist if decisions are made solely on correlation?”
+
+🔹 5. WHAT-IF & SCENARIO ANALYSIS
+
+These are high-value executive questions.
+
+“What happens to sales if discount increases by 10% next month?”
+
+“What is the expected impact of increasing marketing spend by 20%?”
+
+“Which scenario produces higher sales: price reduction or marketing increase?”
+
+“What trade-offs exist between discounting and profitability?”
+
+“What is the safest lever to pull based on forecast confidence?”
+
+🔹 6. CATEGORY-WISE STRATEGY QUESTIONS
+
+Perfect for your category-wise Prophet forecasts.
+
+“Which product category shows the strongest growth potential?”
+
+“Do all categories respond similarly to discounts?”
+
+“Which category is most sensitive to marketing spend?”
+
+“Where should marketing budget be allocated for maximum impact?”
+
+“Which category has the most predictable demand?”
+
+🔹 7. RISK, UNCERTAINTY & CONFIDENCE
+
+These align with Prophet uncertainty bands.
+
+“How reliable is the forecast over the next 90 days?”
+
+“What does a wide uncertainty band imply for planning?”
+
+“Which future periods carry higher forecasting risk?”
+
+“Should aggressive decisions be avoided during high uncertainty periods?”
+
+“How should uncertainty influence inventory or budgeting decisions?”
+
+🔹 8. MODEL PERFORMANCE & TRUST
+
+For explainability and evaluation.
+
+“How accurate is the model based on MAE and RMSE?”
+
+“Is the model reliable enough for operational decisions?”
+
+“What are the limitations of this forecasting approach?”
+
+“Which insights are high confidence vs low confidence?”
+
+“Where should human judgment override model predictions?”
+
+🔹 9. EXECUTIVE-LEVEL QUESTIONS (BEST FOR DEMOS)
+
+These make your project stand out.
+
+“Summarize the most important insight for business leadership.”
+
+“What single action would you recommend based on this analysis?”
+
+“What should the business stop doing based on weak relationships?”
+
+“What should the business double down on?”
+
+“What is the biggest hidden risk in current strategy?”
+
+🔹 10. AUTO-INSIGHT GENERATION PROMPTS
+
+Use these to let the LLM lead.
+
+“Generate three actionable insights from the data.”
+
+“Highlight one opportunity and one risk from the forecast.”
+
+“Identify one insight that is counter-intuitive.”
+
+“Explain what the data does NOT support.”
+
+“Provide a data-backed recommendation in one paragraph.”
