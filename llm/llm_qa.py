@@ -1,8 +1,8 @@
 import os
-from click import prompt
+# from click import prompt
 from dotenv import load_dotenv
 import google.generativeai as genai
-from streamlit import text
+# from streamlit import text
 from utils.logger import setup_logger
 from functools import lru_cache
 import re
@@ -59,21 +59,6 @@ def _cached_llm_call(prompt: str) -> str:
 
 
 
-# ---------------- STREAMING GENERATOR ----------------
-def _stream_llm(prompt: str):
-    response = model.generate_content(
-        prompt,
-        stream=True,
-        generation_config={
-            "temperature": 0.3,
-            "max_output_tokens": 500
-        }
-    )
-    for chunk in response:
-        if chunk.text:
-            yield chunk.text
-
-
 # ---------------- MAIN FUNCTION (UNCHANGED SIGNATURE) ---------------
 
 def ask_llm(question: str, insights: dict, df=None, eval_metrics=None) -> str:
@@ -87,7 +72,7 @@ def ask_llm(question: str, insights: dict, df=None, eval_metrics=None) -> str:
     relation_text = ""
 
 
-    # -------- EXECUTIVE SUMMARY and category explaination OVERRIDE --------
+    # -------- EXECUTIVE SUMMARY and category explaination  --------
     goto_fallback = any(
     k in q
     for k in [
@@ -98,7 +83,7 @@ def ask_llm(question: str, insights: dict, df=None, eval_metrics=None) -> str:
         "management summary",
         "board summary",
 
-        # Category explanations (CRITICAL FIX)
+        # Category explanation
         "explain electronics",
         "explain category",
         "category performance",
@@ -123,7 +108,7 @@ def ask_llm(question: str, insights: dict, df=None, eval_metrics=None) -> str:
     analytical_context = build_analytical_context(df) if df is not None else {}
 
     baseline_day = insights.get("baseline_units_per_day", 0)
-    baseline_month = insights.get("baseline_units_per_month", 0)
+    # baseline_month = insights.get("baseline_units_per_month", 0)
 
     # -------- FUTURE HORIZON --------
     horizon_days = 30
@@ -195,15 +180,15 @@ def ask_llm(question: str, insights: dict, df=None, eval_metrics=None) -> str:
         delta = (new_daily - baseline_day) * horizon_days
 
         return f"""
-📊 **Sales Increase Scenario ({horizon_days} Days)**
+        📊 **Sales Increase Scenario ({horizon_days} Days)**
 
-• Current avg demand: {baseline_day:.2f} units/day
-• Increase applied: {int(pct*100)}%
-• New expected demand: {new_daily:.2f} units/day
-• Additional units over {horizon_days} days: **~{delta:.0f} units**
+        • Current avg demand: {baseline_day:.2f} units/day
+        • Increase applied: {int(pct*100)}%
+        • New expected demand: {new_daily:.2f} units/day
+        • Additional units over {horizon_days} days: **~{delta:.0f} units**
 
-🟢 **High confidence** — computed directly from forecast baseline
-"""
+        🟢 **High confidence** — computed directly from forecast baseline
+        """
 
         # -------- SAFE CONTEXT EXTRACTION --------
     trend = insights.get("trend", "Not specified")
@@ -274,38 +259,13 @@ STRICT INSTRUCTIONS:
 def explain_chart(
     x_col: str,
     y_col: str,
-    chart_type: str,
+    #chart_type: str,
     correlation: float,
     strength: str,
     direction: str,
     causal_statement: str
 ) -> str:
-#     prompt = f"""
-# You are a senior business analyst.
 
-# DATA FACTS (DO NOT CHANGE):
-# - X variable: {x_col}
-# - Y variable: {y_col}
-# - Correlation value: {correlation}
-# - Relationship strength: {strength}
-# - Direction: {direction}
-# - Business causality: {causal_statement}
-
-# TASK:
-# Write a **professional business explanation in 45–55 words**.
-
-# RULES:
-# - No greetings (no "team", no "let's")
-# - No storytelling
-# - No bullet points
-# - No assumptions beyond the data
-# - If the relationship is weak, clearly state it is not a strong driver
-# - Maintain correct business causality
-# - Use clear, executive-ready language
-
-# OUTPUT:
-# A single concise paragraph.
-# """
     prompt = f"""
 You are a senior business analyst writing for executives.
 
