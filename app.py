@@ -151,8 +151,14 @@ def render_confidence_text(text: str):
     return text
 
  # ---------------- LOAD & PREPROCESS ----------------
-df = load_data("data/commerce_Sales_Prediction_Dataset.csv")
-processed_df, prophet_df, _ = preprocess_data(df)
+# df = load_data("data/commerce_Sales_Prediction_Dataset.csv")
+# processed_df, prophet_df, _ = preprocess_data(df)
+@st.cache_data(show_spinner=False)
+def load_and_prepare_data():
+    df = load_data("data/commerce_Sales_Prediction_Dataset.csv")
+    return preprocess_data(df)
+
+processed_df, prophet_df, _ = load_and_prepare_data()
 
 # ---------- INTRO CARD STATE ----------
 if "intro_step" not in st.session_state:
@@ -311,13 +317,21 @@ st.divider()
 if st.session_state.intro_step >= 3:
 
         # ---------------- TRAIN MODEL ----------------
-        model, forecast = train_prophet(prophet_df)
+        # model, forecast = train_prophet(prophet_df)
+        @st.cache_resource(show_spinner=True)
+        def get_trained_model(prophet_df):
+            return train_prophet(prophet_df)
+
+        model, forecast = get_trained_model(prophet_df)
+
 
         # ---------------- INSIGHTS ----------------
         insights = generate_insights(forecast)
         eval_metrics = evaluate_forecast(
-            prophet_df["y"].tail(30),
-            forecast["yhat"].iloc[:30]
+            # prophet_df["y"].tail(30),
+            # forecast["yhat"].iloc[:30]
+            actual=prophet_df["y"].iloc[-30:],
+            predicted=forecast["yhat"].iloc[-30:]
         )
 
 
@@ -328,8 +342,12 @@ if st.session_state.intro_step >= 3:
             col1, col2, col3 = st.columns(3)
 
             col1.metric("Avg Units Sold", insights["average_sales"])
-            col2.metric("Best Day", insights["best_day"])
-            col3.metric("Worst Day", insights["worst_day"])
+            col2.metric("Best Period", insights["best_period"])
+            col3.metric("Worst Period", insights["worst_period"])
+            # col1.metric("Avg Units Sold", insights["average_sales"])
+            # col2.metric("Best Day", insights["best_day"])
+            # col3.metric("Worst Day", insights["worst_day"])
+
 
 
 
@@ -446,11 +464,12 @@ if st.session_state.intro_step >= 3:
 
         # ---------------- CATEGORY GROWTH LOGIC ----------------
         category_trend_df = (
-            processed_df
-            .groupby(["product_category", "date"])["units_sold"]
-            .sum()
-            .reset_index()
+        processed_df
+        .groupby(["product_category", "date"], observed=True)["units_sold"]
+        .sum()
+        .reset_index()
         )
+
 
         # Use recent window (last 30 days vs previous 30 days)
         latest_date = category_trend_df["date"].max()
@@ -459,7 +478,7 @@ if st.session_state.intro_step >= 3:
 
         recent_sales = (
             category_trend_df[category_trend_df["date"] >= recent_start]
-            .groupby("product_category")["units_sold"]
+            .groupby("product_category",observed=True)["units_sold"]
             .sum()
         )
 
@@ -468,7 +487,7 @@ if st.session_state.intro_step >= 3:
                 (category_trend_df["date"] >= previous_start) &
                 (category_trend_df["date"] < recent_start)
             ]
-            .groupby("product_category")["units_sold"]
+            .groupby("product_category",observed=True)["units_sold"]
             .sum()
         )
 
@@ -516,52 +535,52 @@ if st.session_state.intro_step >= 3:
 
         st.plotly_chart(fig_growth, width="stretch")
 
-        if st.button("📊 Explain Category Growth with AI", key="category_growth_ai"):
+        # if st.button("📊 Explain Category Growth with AI", key="category_growth_ai"):
 
-            category_summary = growth_df[[
-                "product_category", "Recent Sales", "Previous Sales", "Growth %"
-            ]].to_dict(orient="records")
+        #     category_summary = growth_df[[
+        #         "product_category", "Recent Sales", "Previous Sales", "Growth %"
+        #     ]].to_dict(orient="records")
 
-            prompt = f"""
-        You are a senior business analyst preparing an executive briefing.
+        #     prompt = f"""
+        # You are a senior business analyst preparing an executive briefing.
 
-        DATA PROVIDED:
-        Category-wise sales comparison between two periods (last 30 days vs previous 30 days):
-        {category_summary}
+        # DATA PROVIDED:
+        # Category-wise sales comparison between two periods (last 30 days vs previous 30 days):
+        # {category_summary}
 
-        OBJECTIVE:
-        Explain which categories are growing, which are declining, and what this means for the business.
+        # OBJECTIVE:
+        # Explain which categories are growing, which are declining, and what this means for the business.
 
-        INSTRUCTIONS:
-        - Length: 60–80 words
-        - Executive, decision-oriented tone
-        - Highlight growth leaders and laggards
-        - Avoid speculation
-        - Do NOT use bullet points
-        - Do NOT mention data availability issues
-        - Focus on demand momentum and planning implications
-        """
+        # INSTRUCTIONS:
+        # - Length: 60–80 words
+        # - Executive, decision-oriented tone
+        # - Highlight growth leaders and laggards
+        # - Avoid speculation
+        # - Do NOT use bullet points
+        # - Do NOT mention data availability issues
+        # - Focus on demand momentum and planning implications
+        # """
 
-            explanation = ask_llm(
-                prompt,
-                insights,
-                df=processed_df,
-                eval_metrics=eval_metrics
-            )
+        #     explanation = ask_llm(
+        #         prompt,
+        #         insights,
+        #         df=processed_df,
+        #         eval_metrics=eval_metrics
+        #     )
 
-            st.markdown(
-                f"""
-                <div style="
-                    background: linear-gradient(180deg, #020617, #020617);
-                    border: 1px solid #1e293b;
-                    border-radius: 14px;
-                    padding: 20px;
-                ">
-                {explanation}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+        #     st.markdown(
+        #         f"""
+        #         <div style="
+        #             background: linear-gradient(180deg, #020617, #020617);
+        #             border: 1px solid #1e293b;
+        #             border-radius: 14px;
+        #             padding: 20px;
+        #         ">
+        #         {explanation}
+        #         </div>
+        #         """,
+        #         unsafe_allow_html=True
+        #     )
 
         st.subheader("🤖 Explain Category Performance")
 
@@ -627,11 +646,15 @@ if st.session_state.intro_step >= 3:
                     """
 
                     explanation = ask_llm(
-                        prompt,
-                        insights,
-                        df=processed_df,
-                        eval_metrics=eval_metrics
+                    question=category,
+                    insights={
+                        "category_status": status,
+                        "category_growth": f"{growth_pct:.1f}%"
+                    },
+                    df=processed_df,
+                    intent="category_explanation"
                     )
+
 
                     st.markdown(
                         f"""
@@ -649,7 +672,7 @@ if st.session_state.intro_step >= 3:
                     )
 
         # ============================================================
-        # 🔥 NEW FEATURES BELOW (EMBEDDED, NOT BREAKING)
+        # 
         # ============================================================
 
         st.divider()
@@ -724,7 +747,7 @@ if st.session_state.intro_step >= 3:
                         temp = processed_df[[selected_col, col]].dropna().copy()
                         bins = pd.qcut(temp[selected_col], q=10, duplicates="drop")
                         temp["bin"] = bins.apply(lambda x: f"{int(x.left)}–{int(x.right)}")
-                        summary = temp.groupby("bin")[col].mean().reset_index()
+                        summary = temp.groupby("bin",observed=True)[col].mean().reset_index()
                         fig = px.bar(summary, x="bin", y=col)
 
                     fig.update_layout(
@@ -733,7 +756,15 @@ if st.session_state.intro_step >= 3:
                         height=260
                     )
 
-                    st.plotly_chart(fig, use_container_width=True)
+                    # st.plotly_chart(fig, use_container_width=True)
+                    chart_key = f"plot_{selected_col}_{col}_{chart_type}"
+
+                    st.plotly_chart(
+                        fig,
+                        width="stretch",
+                        key=chart_key
+                    )
+
 
                     # -------- QUICK INSIGHT (NO LLM) --------
                     corr_value = processed_df[[selected_col, col]].corr().iloc[0, 1]
@@ -748,7 +779,7 @@ if st.session_state.intro_step >= 3:
                         explanation = explain_chart(
                             x_col=selected_col,
                             y_col=col,
-                            chart_type=chart_type,
+                            # chart_type=chart_type,
                             correlation=analysis["correlation"],
                             strength=analysis["strength"],
                             direction=analysis["direction"],
@@ -815,7 +846,7 @@ if st.session_state.intro_step >= 3:
                 explanation = explain_chart(
             x_col=explain_x,
             y_col=explain_y,
-            chart_type="Relationship Analysis",
+            # chart_type="Relationship Analysis",
             correlation=analysis["correlation"],
             strength=analysis["strength"],
             direction=analysis["direction"],
@@ -856,10 +887,18 @@ if st.session_state.intro_step >= 3:
         # ---------------- CATEGORY-WISE FORECAST ----------------
         st.subheader(f"📦 Category-wise Forecast: {selected_category}")
 
-        category_forecast = category_wise_forecast(
-            processed_df,
-            selected_category
+        @st.cache_data(show_spinner=False)
+        def get_category_forecast(df, category, days=60):
+            return category_wise_forecast(df, category, days)
+
+        # category_forecast = category_wise_forecast(
+        #     processed_df,
+        #     selected_category
+        # )
+        category_forecast = get_category_forecast(
+            processed_df, selected_category
         )
+
 
         with st.expander("ℹ️ How to interpret category-wise forecast"):
             st.write(
@@ -893,28 +932,86 @@ if st.session_state.intro_step >= 3:
             "Combines recent growth momentum with forward-looking demand forecasts."
         )
 
-        forecast_summary = []
+        # forecast_summary = []
 
-        for category in growth_df["product_category"]:
-            cat_forecast = category_wise_forecast(
-                processed_df,
-                category,
-                days=30
-            )
+        # for category in growth_df["product_category"]:
+        #     cat_forecast = category_wise_forecast(
+        #         processed_df,
+        #         category,
+        #         days=30
+        #     )
 
-            avg_future_demand = cat_forecast["yhat"].tail(30).mean()
-            recent_growth = growth_df.loc[
-                growth_df["product_category"] == category,
-                "Growth %"
-            ].values[0]
+        #     avg_future_demand = cat_forecast["yhat"].tail(30).mean()
+        #     recent_growth = growth_df.loc[
+        #         growth_df["product_category"] == category,
+        #         "Growth %"
+        #     ].values[0]
 
-            forecast_summary.append({
-                "Category": category,
-                "Recent Growth (%)": recent_growth,
-                "Avg Forecast Demand (30d)": avg_future_demand
-            })
+        #     forecast_summary.append({
+        #         "Category": category,
+        #         "Recent Growth (%)": recent_growth,
+        #         "Avg Forecast Demand (30d)": avg_future_demand
+        #     })
 
-        forecast_summary_df = pd.DataFrame(forecast_summary)
+        # forecast_summary_df = pd.DataFrame(forecast_summary)
+        # @st.cache_data(show_spinner=False)
+        # def compute_growth_forecast_summary(processed_df, growth_df):
+        #     summary = []
+        #     for category in growth_df["product_category"]:
+        #         forecast = category_wise_forecast(processed_df, category, days=30)
+        #         summary.append({
+        #             "Category": category,
+        #             "Recent Growth (%)": growth_df.loc[
+        #                 growth_df["product_category"] == category, "Growth %"
+        #             ].values[0],
+        #             "Avg Forecast Demand (30d)": forecast["yhat"].tail(30).mean()
+        #         })
+        #     return pd.DataFrame(summary)
+
+
+        # fig_combo = px.scatter(
+        #     summary,
+        #     x="Recent Growth (%)",
+        #     y="Avg Forecast Demand (30d)",
+        #     text="Category",
+        #     size="Avg Forecast Demand (30d)",
+        #     color="Recent Growth (%)",
+        #     color_continuous_scale=["#ef4444", "#f59e0b", "#22c55e"],
+        #     title="Category Growth vs Forecasted Demand"
+        # )
+
+        # fig_combo.update_traces(textposition="top center")
+        # fig_combo.update_layout(template="plotly_dark", height=480)
+
+        # st.plotly_chart(fig_combo, width="stretch")
+        @st.cache_data(show_spinner=False)
+        def build_growth_forecast_df(processed_df, growth_df):
+            rows = []
+
+            for category in growth_df["product_category"]:
+                cat_forecast = category_wise_forecast(
+                    processed_df, category, days=30
+                )
+
+                rows.append({
+                    "Category": category,
+                    "Recent Growth (%)": growth_df.loc[
+                        growth_df["product_category"] == category,
+                        "Growth %"
+                    ].values[0],
+                    "Avg Forecast Demand (30d)": cat_forecast["yhat"].tail(30).mean()
+                })
+
+            return pd.DataFrame(rows)
+
+
+        forecast_summary_df = build_growth_forecast_df(
+            processed_df, growth_df
+        )
+
+        # 🔒 SAFETY CHECK (VERY IMPORTANT)
+        st.write("Debug – Forecast Summary Preview")
+        st.dataframe(forecast_summary_df)
 
         fig_combo = px.scatter(
             forecast_summary_df,
@@ -935,13 +1032,26 @@ if st.session_state.intro_step >= 3:
 
         # ---------------- WHAT-IF ANALYSIS ----------------
         st.subheader("🔮 What-If Scenario Analysis")
+        @st.cache_data(show_spinner=False)
+        def get_what_if_forecast(_model, prophet_df, d_change, m_change):
+            return what_if_forecast(
+                _model,
+                prophet_df,
+                discount_change=d_change,
+                marketing_change=m_change
+            )
 
-        what_if = what_if_forecast(
-            model,
-            prophet_df,
-            discount_change=discount_change,
-            marketing_change=marketing_change
+
+        # what_if = what_if_forecast(
+        #     model,
+        #     prophet_df,
+        #     discount_change=discount_change,
+        #     marketing_change=marketing_change
+        # )
+        what_if = get_what_if_forecast(
+            model, prophet_df, discount_change, marketing_change
         )
+
 
         with st.expander("ℹ️ What-if scenario explanation"):
             st.write(
@@ -1004,48 +1114,50 @@ if st.session_state.intro_step >= 3:
             "Type your business question",
             placeholder="e.g. What happens if marketing spend increases by 20% next month?"
         )
+        if len(custom_question.strip()) < 5:
+            st.warning("Please ask a meaningful business question.")
+        else:
+            if st.button("Ask AI", key="btn_custom_question") and custom_question.strip():
+                answer = ask_llm(
+                    custom_question,
+                    insights,
+                    df=processed_df,
+                    eval_metrics=eval_metrics
+                )
+                st.markdown(render_confidence_text(answer), unsafe_allow_html=True)
 
-        if st.button("Ask AI", key="btn_custom_question") and custom_question.strip():
-            answer = ask_llm(
-                custom_question,
-                insights,
-                df=processed_df,
-                eval_metrics=eval_metrics
-            )
-            st.markdown(render_confidence_text(answer), unsafe_allow_html=True)
+            # model performance    
+            st.markdown("### 📐 Model Performance")
 
-        # model performance    
-        st.markdown("### 📐 Model Performance")
-
-        with st.container():
-            col1, col2 = st.columns(2)
-            col1.metric("MAE", eval_metrics["MAE"])
-            col2.metric("RMSE", eval_metrics["RMSE"])
+            with st.container():
+                col1, col2 = st.columns(2)
+                col1.metric("MAE", eval_metrics["MAE"])
+                col2.metric("RMSE", eval_metrics["RMSE"])
 
 
-        with st.expander("🤖 Model Performance Explained"):
-            st.caption("Click a button to get an AI explanation.")
+            with st.expander("🤖 Model Performance Explained"):
+                st.caption("Click a button to get an AI explanation.")
 
-            col_a, col_b = st.columns(2)
+                col_a, col_b = st.columns(2)
 
-            with col_a:
-                if st.button("📊 Is this model good?", key="btn_model_quality"):
-                    explanation = ask_llm(
-                        "Is this forecasting model accurate and reliable for business decisions?",
-                        insights,
-                        df=processed_df,
-                        eval_metrics=eval_metrics
-                    )
-                    st.markdown(render_confidence_text(explanation), unsafe_allow_html=True)
+                with col_a:
+                    if st.button("📊 Is this model good?", key="btn_model_quality"):
+                        explanation = ask_llm(
+                            "Is this forecasting model accurate and reliable for business decisions?",
+                            insights,
+                            df=processed_df,
+                            eval_metrics=eval_metrics
+                        )
+                        st.markdown(render_confidence_text(explanation), unsafe_allow_html=True)
 
-            with col_b:
-                if st.button("⚠️ How confident is the forecast?", key="btn_model_confidence"):
-                    explanation = ask_llm(
-                        "Explain forecast confidence using MAE, RMSE, and uncertainty over time.",
-                        insights,
-                        df=processed_df,
-                        eval_metrics=eval_metrics
-                    )
-                    st.markdown(render_confidence_text(explanation), unsafe_allow_html=True)
+                with col_b:
+                    if st.button("⚠️ How confident is the forecast?", key="btn_model_confidence"):
+                        explanation = ask_llm(
+                            "Explain forecast confidence using MAE, RMSE, and uncertainty over time.",
+                            insights,
+                            df=processed_df,
+                            eval_metrics=eval_metrics
+                        )
+                        st.markdown(render_confidence_text(explanation), unsafe_allow_html=True)
 
 

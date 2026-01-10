@@ -102,7 +102,7 @@ For explainability and evaluation.
 
 “How accurate is the model based on MAE and RMSE?”
 
-“Is the model reliable enough for operational decisions?”
+“Is the model reliable enough for operational decisions?” 
 
 “What are the limitations of this forecasting approach?”
 
