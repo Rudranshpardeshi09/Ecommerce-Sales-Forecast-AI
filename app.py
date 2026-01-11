@@ -338,7 +338,7 @@ sidebar_pages = {
 }
 
 for page_name, page_key in sidebar_pages.items():
-    if st.sidebar.button(page_name, key=f"sidebar_{page_key}", use_container_width=True):
+    if st.sidebar.button(page_name, key=f"sidebar_{page_key}", width='stretch'):
         st.session_state.active_sidebar_page = page_key
         st.rerun()
 
@@ -358,7 +358,7 @@ st.sidebar.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-if st.sidebar.button("Close Options", key="close_sidebar", use_container_width=True):
+if st.sidebar.button("Close Options", key="close_sidebar", width='stretch'):
     st.session_state.active_sidebar_page = None
     st.rerun()
 
@@ -420,7 +420,7 @@ if st.session_state.intro_step >= 3:
     if "forecast_insights_shown" not in st.session_state:
         st.session_state.forecast_insights_shown = False
     
-    if st.button("🔍 Generate Insight", key="generate_forecast_insight", use_container_width=False):
+    if st.button("🔍 Generate Insight", key="generate_forecast_insight", width='content'):
         st.session_state.forecast_insights_shown = not st.session_state.forecast_insights_shown
         st.rerun()
     
@@ -826,7 +826,251 @@ if st.session_state.intro_step >= 3:
             unsafe_allow_html=True
         )
 
-    # ---------------- GROWTH VS FORECAST OUTLOOK ----------------
+    # ================= COMPREHENSIVE INSIGHTS DASHBOARD =================
+    st.divider()
+    st.header("📊 Comprehensive Sales & Marketing Insights Dashboard")
+    st.caption("Complete analysis of sales trends, customer segments, marketing effectiveness, and product performance")
+    
+    # -------- Sales & Category Analysis (3x3 Grid) --------
+    st.subheader("📈 Sales & Category Performance (Top Insights)")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 1. Sales by Product Category")
+        category_sales = processed_df.groupby('product_category')['units_sold'].sum().sort_values(ascending=False)
+        fig1 = px.bar(
+            x=category_sales.index,
+            y=category_sales.values,
+            labels={"x": "Product Category", "y": "Units Sold"},
+            color=category_sales.values,
+            color_continuous_scale="Viridis"
+        )
+        fig1.update_layout(template="plotly_dark", height=350, showlegend=False)
+        st.plotly_chart(fig1, width='stretch')
+    
+    with col2:
+        st.markdown("### 2. Customer Segment Contribution")
+        segment_sales = processed_df.groupby('customer_segment')['units_sold'].sum().sort_values(ascending=False)
+        fig2 = px.pie(
+            values=segment_sales.values,
+            names=segment_sales.index,
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig2.update_layout(template="plotly_dark", height=350)
+        st.plotly_chart(fig2, width='stretch')
+    
+    with col3:
+        st.markdown("### 3. Monthly Sales Trend - 2023")
+        sales_2023 = processed_df[processed_df['date'].dt.year == 2023].copy()
+        monthly_sales = sales_2023.groupby(sales_2023['date'].dt.month)['units_sold'].sum()
+        fig3 = px.line(
+            x=monthly_sales.index,
+            y=monthly_sales.values,
+            labels={"x": "Month", "y": "Units Sold"},
+            markers=True,
+            color_discrete_sequence=["#22c55e"]
+        )
+        fig3.update_layout(template="plotly_dark", height=350, showlegend=False)
+        st.plotly_chart(fig3, width='stretch')
+    
+    col4, col5, col6 = st.columns(3)
+    
+    with col4:
+        st.markdown("### 4. Discount Sensitivity by Segment")
+        processed_df_temp = processed_df.copy()
+        processed_df_temp['Discount_Bucket'] = pd.cut(
+            processed_df_temp['discount'],
+            bins=[-1, 10, 30, 60],
+            labels=['Low Discount', 'Medium Discount', 'High Discount']
+        )
+        discount_impact = processed_df_temp.groupby(['customer_segment', 'Discount_Bucket'], observed=True)['units_sold'].mean().unstack()
+        fig4 = px.bar(
+            discount_impact.reset_index(),
+            x='customer_segment',
+            y=discount_impact.columns.tolist(),
+            title="Units Sold by Discount Level",
+            barmode='group'
+        )
+        fig4.update_layout(template="plotly_dark", height=350, xaxis_title="Customer Segment", yaxis_title="Avg Units Sold")
+        st.plotly_chart(fig4, width='stretch')
+    
+    with col5:
+        st.markdown("### 5. Marketing Spend Distribution")
+        category_marketing = processed_df.groupby('product_category')['marketing_spend'].sum().sort_values(ascending=False)
+        fig5 = px.bar(
+            x=category_marketing.index,
+            y=category_marketing.values,
+            labels={"x": "Product Category", "y": "Marketing Spend"},
+            color=category_marketing.values,
+            color_continuous_scale="Blues"
+        )
+        fig5.update_layout(template="plotly_dark", height=350, showlegend=False)
+        st.plotly_chart(fig5, width='stretch')
+    
+    with col6:
+        st.markdown("### 6. Category vs Segment Sales Heatmap")
+        heatmap_data = processed_df.groupby(['customer_segment', 'product_category'])['units_sold'].sum().unstack()
+        fig6 = px.imshow(
+            heatmap_data,
+            labels=dict(x="Product Category", y="Customer Segment", color="Units Sold"),
+            color_continuous_scale="Greens",
+            aspect="auto"
+        )
+        fig6.update_layout(template="plotly_dark", height=350)
+        st.plotly_chart(fig6, width='stretch')
+    
+    # -------- Marketing & ROI Analysis (5x5 Grid) --------
+    st.divider()
+    st.subheader("💰 Marketing Effectiveness & ROI Analysis")
+    
+    col7, col8, col9 = st.columns(3)
+    
+    with col7:
+        st.markdown("### 1. Marketing Efficiency by Category")
+        category_efficiency = (
+            processed_df.groupby('product_category')[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        category_efficiency['Efficiency'] = (
+            category_efficiency['units_sold'] / category_efficiency['marketing_spend']
+        )
+        category_efficiency = category_efficiency.sort_values('Efficiency')
+        fig7 = px.bar(
+            x=category_efficiency['Efficiency'],
+            y=category_efficiency.index,
+            orientation='h',
+            color=category_efficiency['Efficiency'],
+            color_continuous_scale="Reds"
+        )
+        fig7.update_layout(template="plotly_dark", height=300, xaxis_title="Units per ₹ Spent", yaxis_title="Category", showlegend=False)
+        st.plotly_chart(fig7, width='stretch')
+    
+    with col8:
+        st.markdown("### 2. Marketing ROI by Category")
+        roi_category = (
+            processed_df.groupby('product_category')[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        roi_category['ROI'] = (
+            (roi_category['units_sold'] - roi_category['marketing_spend']) /
+            roi_category['marketing_spend'] * 100
+        )
+        roi_category = roi_category.sort_values('ROI')
+        fig8 = px.bar(
+            x=roi_category['ROI'],
+            y=roi_category.index,
+            orientation='h',
+            color=roi_category['ROI'],
+            color_continuous_scale="RdYlGn"
+        )
+        fig8.update_layout(template="plotly_dark", height=300, xaxis_title="ROI (%)", yaxis_title="Category", showlegend=False)
+        st.plotly_chart(fig8, width='stretch')
+    
+    with col9:
+        st.markdown("### 3. Segment-wise Marketing ROI")
+        roi_segment = (
+            processed_df.groupby('customer_segment')[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        roi_segment['ROI'] = (
+            (roi_segment['units_sold'] - roi_segment['marketing_spend']) /
+            roi_segment['marketing_spend'] * 100
+        )
+        fig9 = px.bar(
+            x=roi_segment.index,
+            y=roi_segment['ROI'],
+            color=roi_segment['ROI'],
+            color_continuous_scale="RdYlGn",
+            labels={"x": "Customer Segment", "y": "ROI (%)"}
+        )
+        fig9.update_layout(template="plotly_dark", height=300, showlegend=False)
+        st.plotly_chart(fig9, width='stretch')
+
+    col10, col11 = st.columns(2)
+
+    with col10:
+        st.markdown("### 4. Marketing vs Sales Comparison")
+        category_summary = (
+            processed_df.groupby('product_category')[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        fig10 = px.bar(
+            category_summary.reset_index(),
+            x='product_category',
+            y=['marketing_spend', 'units_sold'],
+            barmode='group',
+            labels={"value": "Amount", "product_category": "Category"}
+        )
+        fig10.update_layout(template="plotly_dark", height=300)
+        st.plotly_chart(fig10, width='stretch')
+    
+    with col11:
+        st.markdown("### 5. Monthly Marketing ROI - 2023")
+        roi_month = (
+            processed_df[processed_df['date'].dt.year == 2023]
+            .groupby(processed_df['date'].dt.month)[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        roi_month['ROI'] = (
+            (roi_month['units_sold'] - roi_month['marketing_spend']) /
+            roi_month['marketing_spend'] * 100
+        )
+        fig11 = px.line(
+            x=roi_month.index,
+            y=roi_month['ROI'],
+            markers=True,
+            color_discrete_sequence=["#f59e0b"],
+            labels={"x": "Month", "y": "ROI (%)"}
+        )
+        fig11.update_layout(template="plotly_dark", height=300, showlegend=False)
+        st.plotly_chart(fig11, width='stretch')
+
+    col12, col13 = st.columns(2)
+
+    with col12:
+        st.markdown("### 6. Monthly Marketing ROI - 2024")
+        roi_month = (
+            processed_df[processed_df['date'].dt.year == 2024]
+            .groupby(processed_df['date'].dt.month)[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        roi_month['ROI'] = (
+            (roi_month['units_sold'] - roi_month['marketing_spend']) /
+            roi_month['marketing_spend'] * 100
+        )
+        fig11 = px.line(
+            x=roi_month.index,
+            y=roi_month['ROI'],
+            markers=True,
+            color_discrete_sequence=["#f59e0b"],
+            labels={"x": "Month", "y": "ROI (%)"}
+        )
+        fig11.update_layout(template="plotly_dark", height=300, showlegend=False)
+        st.plotly_chart(fig11, width='stretch')
+
+    with col13:
+        st.markdown("### 7. Monthly Marketing ROI - 2025")
+        roi_month = (
+            processed_df[processed_df['date'].dt.year == 2025]
+            .groupby(processed_df['date'].dt.month)[['marketing_spend', 'units_sold']]
+            .sum()
+        )
+        roi_month['ROI'] = (
+            (roi_month['units_sold'] - roi_month['marketing_spend']) /
+            roi_month['marketing_spend'] * 100
+        )
+        fig11 = px.line(
+            x=roi_month.index,
+            y=roi_month['ROI'],
+            markers=True,
+            color_discrete_sequence=["#f59e0b"],
+            labels={"x": "Month", "y": "ROI (%)"}
+        )
+        fig11.update_layout(template="plotly_dark", height=300, showlegend=False)
+        st.plotly_chart(fig11, width='stretch')
+
+    # -------- GROWTH VS FORECAST OUTLOOK ----------------
     st.divider()
     st.header("📈 Growth vs Forecast Outlook")
 
@@ -859,7 +1103,7 @@ if st.session_state.intro_step >= 3:
     )
 
     # 🔒 SAFETY CHECK (VERY IMPORTANT)
-    st.write("Debug – Forecast Summary Preview")
+    st.write("Forecast Summary Preview")
     st.dataframe(forecast_summary_df)
 
     fig_combo = px.scatter(
@@ -882,7 +1126,7 @@ if st.session_state.intro_step >= 3:
     if "table_explanation_shown" not in st.session_state:
         st.session_state.table_explanation_shown = False
     
-    if st.button("🔍 Explain Table", key="explain_table_btn", use_container_width=False):
+    if st.button("🔍 Explain Table", key="explain_table_btn", width='content'):
         st.session_state.table_explanation_shown = not st.session_state.table_explanation_shown
         st.rerun()
     
@@ -1107,7 +1351,7 @@ if st.session_state.intro_step >= 3:
                         if st.button(
                             "🔍 Explain Relation",
                             key=f"explain_relation_{relationship_key}",
-                            use_container_width=True
+                            width='stretch'
                         ):
                             st.session_state.active_relationship_explanation = relationship_key
                             st.rerun()
@@ -1226,7 +1470,7 @@ if st.session_state.intro_step >= 3:
             if "category_graph_insight_shown" not in st.session_state:
                 st.session_state.category_graph_insight_shown = False
             
-            if st.button("🔍 Explain Graph", key=f"explain_category_graph_{selected_category}", use_container_width=False):
+            if st.button("🔍 Explain Graph", key=f"explain_category_graph_{selected_category}", width='content'):
                 st.session_state.category_graph_insight_shown = not st.session_state.category_graph_insight_shown
                 st.rerun()
             
@@ -1432,7 +1676,7 @@ if st.session_state.intro_step >= 3:
             if "whatif_graph_insight_shown" not in st.session_state:
                 st.session_state.whatif_graph_insight_shown = False
             
-            if st.button("🔍 Explain Graph", key="explain_whatif_graph", use_container_width=False):
+            if st.button("🔍 Explain Graph", key="explain_whatif_graph", width='content'):
                 st.session_state.whatif_graph_insight_shown = not st.session_state.whatif_graph_insight_shown
                 st.rerun()
             
@@ -1783,7 +2027,7 @@ if st.session_state.intro_step >= 3:
             question_cols = st.columns(len(preset_questions))
             for idx, (label, question_text) in enumerate(preset_questions.items()):
                 with question_cols[idx]:
-                    if st.button(label, key=f"preset_{label}", use_container_width=True):
+                    if st.button(label, key=f"preset_{label}", width='stretch'):
                         st.session_state.active_question_answer = {
                             "question": question_text,
                             "label": label
