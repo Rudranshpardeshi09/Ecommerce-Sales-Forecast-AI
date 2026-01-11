@@ -527,7 +527,23 @@ if st.session_state.intro_step >= 3:
         
         # Growth trajectory
         trend_series = forecast["trend"].rolling(7).mean()
-        trend_change_pct = ((trend_series.iloc[-1] - trend_series.iloc[0]) / abs(trend_series.iloc[0])) * 100 if trend_series.iloc[0] != 0 else 0
+        first_value = trend_series.iloc[0]
+        last_value = trend_series.iloc[-1]
+        
+        # Handle NaN or zero values
+        if pd.isna(first_value) or first_value == 0 or pd.isna(last_value):
+            # Fallback: use raw trend values
+            first_value = forecast["trend"].iloc[0]
+            last_value = forecast["trend"].iloc[-1]
+        
+        if pd.isna(first_value) or first_value == 0:
+            trend_change_pct = 0
+        else:
+            trend_change_pct = ((last_value - first_value) / abs(first_value)) * 100
+        
+        if pd.isna(trend_change_pct):
+            trend_change_pct = 0
+        
         additional["growth_trajectory"] = f"{abs(trend_change_pct):.1f}% {'increase' if trend_change_pct > 0 else 'decrease'}"
         
         # Forecast uncertainty range
@@ -1166,9 +1182,29 @@ if st.session_state.intro_step >= 3:
             with st.expander("ℹ️ How to interpret category-wise forecast"):
                 st.write(
                     """
-                    This chart isolates demand for the selected product category.
-                    It helps compare how different categories respond to
-                    pricing, discounts, and marketing activity.
+                    **What This Graph Shows:**
+                    
+                    This chart displays the predicted future sales for the specific product category you've selected. 
+                    Think of it as a business forecast that tells you how many units of this category you can expect 
+                    to sell in the coming days.
+                    
+                    **Key Things to Look For:**
+                    
+                    1. **Direction**: Is the line going up, down, or staying flat? An upward trend means sales are 
+                       expected to grow, while a downward trend suggests declining demand.
+                    
+                    2. **Patterns**: Look for repeating patterns - these might indicate seasonality (e.g., higher 
+                       sales during certain months or weeks).
+                    
+                    3. **Stability**: A smooth line suggests predictable demand, while a wavy line indicates more 
+                       variable sales expectations.
+                    
+                    4. **Comparison**: Use this to compare different categories - some may grow faster than others, 
+                       helping you decide where to focus your marketing efforts or inventory.
+                    
+                    **Why This Matters:**
+                    Understanding category-specific forecasts helps you make better decisions about inventory management, 
+                    marketing budgets, and resource allocation for each product line.
                     """
                 )
 
@@ -1185,6 +1221,123 @@ if st.session_state.intro_step >= 3:
             )
 
             st.plotly_chart(fig_category, width="stretch")
+            
+            # Explain Graph button for category forecast
+            if "category_graph_insight_shown" not in st.session_state:
+                st.session_state.category_graph_insight_shown = False
+            
+            if st.button("🔍 Explain Graph", key=f"explain_category_graph_{selected_category}", use_container_width=False):
+                st.session_state.category_graph_insight_shown = not st.session_state.category_graph_insight_shown
+                st.rerun()
+            
+            if st.session_state.category_graph_insight_shown:
+                def generate_category_graph_insights(category_forecast, selected_category):
+                    """Generate business analyst insights for category forecast graph"""
+                    points = []
+                    
+                    # 1. Overall trend direction
+                    first_value = category_forecast["yhat"].iloc[0]
+                    last_value = category_forecast["yhat"].iloc[-1]
+                    trend_change = ((last_value - first_value) / first_value) * 100 if first_value > 0 else 0
+                    
+                    if trend_change > 5:
+                        direction = "strong upward trend"
+                        direction_icon = "📈"
+                        implication = "suggests growing market demand and potential for expansion"
+                    elif trend_change > 0:
+                        direction = "moderate upward trend"
+                        direction_icon = "📊"
+                        implication = "indicates steady growth requiring sustained marketing support"
+                    elif trend_change < -5:
+                        direction = "declining trend"
+                        direction_icon = "📉"
+                        implication = "signals market challenges requiring strategic intervention"
+                    else:
+                        direction = "stable/flat trend"
+                        direction_icon = "➡️"
+                        implication = "suggests consistent demand patterns suitable for stable inventory planning"
+                    
+                    points.append(f"{direction_icon} **Trend Direction**: The graph for {selected_category} shows a {direction} ({trend_change:.1f}% change over the forecast period), which {implication}.")
+                    
+                    # 2. Volatility analysis
+                    volatility = (category_forecast["yhat"].std() / category_forecast["yhat"].mean()) * 100 if category_forecast["yhat"].mean() > 0 else 0
+                    if volatility < 10:
+                        stability = "highly stable and predictable"
+                        stability_icon = "✅"
+                        action = "enables confident inventory planning and consistent supply chain management"
+                    elif volatility < 20:
+                        stability = "moderately stable"
+                        stability_icon = "⚖️"
+                        action = "requires flexible inventory management with buffer stock considerations"
+                    else:
+                        stability = "highly volatile"
+                        stability_icon = "⚠️"
+                        action = "demands dynamic inventory systems and close monitoring to avoid stockouts or overstock"
+                    
+                    points.append(f"{stability_icon} **Demand Stability**: With {volatility:.1f}% volatility, {selected_category} exhibits {stability} demand patterns that {action}.")
+                    
+                    # 3. Peak performance analysis
+                    peak = category_forecast["yhat"].max()
+                    avg_forecast = category_forecast["yhat"].mean()
+                    peak_date = category_forecast.loc[category_forecast["yhat"].idxmax(), "ds"]
+                    peak_advantage = ((peak - avg_forecast) / avg_forecast) * 100 if avg_forecast > 0 else 0
+                    
+                    points.append(f"⭐ **Peak Performance**: Maximum forecasted demand reaches {peak:.0f} units around {peak_date.strftime('%B %d, %Y')}, which is {peak_advantage:.1f}% above the average. This peak period {'represents a strategic opportunity for promotional campaigns' if peak_advantage > 30 else 'indicates relatively consistent demand levels'}.")
+                    
+                    # 4. Forecast confidence
+                    uncertainty_range = ((category_forecast["yhat_upper"] - category_forecast["yhat_lower"]).mean()) / avg_forecast * 100 if avg_forecast > 0 else 0
+                    if uncertainty_range < 15:
+                        confidence = "high confidence"
+                        confidence_icon = "🟢"
+                        recommendation = "suitable for operational decision-making and inventory commitments"
+                    elif uncertainty_range < 30:
+                        confidence = "moderate confidence"
+                        confidence_icon = "🟠"
+                        recommendation = "appropriate for strategic planning with contingency considerations"
+                    else:
+                        confidence = "lower confidence"
+                        confidence_icon = "🔴"
+                        recommendation = "requires caution and regular model updates for reliable planning"
+                    
+                    points.append(f"{confidence_icon} **Forecast Confidence**: The uncertainty bands (confidence intervals) show {confidence} levels (±{uncertainty_range:.1f}% range), making this forecast {recommendation}.")
+                    
+                    # 5. Business recommendation
+                    if trend_change > 10:
+                        rec = "increase inventory allocation and marketing investment to capitalize on strong growth momentum"
+                        rec_icon = "💡"
+                    elif trend_change < -10:
+                        rec = "review pricing strategy, consider promotional campaigns, or reassess product positioning to address declining demand"
+                        rec_icon = "🛠️"
+                    else:
+                        rec = "maintain current operational levels while monitoring market conditions for opportunities or risks"
+                        rec_icon = "📊"
+                    
+                    points.append(f"{rec_icon} **Strategic Recommendation**: Based on the forecast trajectory for {selected_category}, management should {rec} to align business operations with projected demand patterns.")
+                    
+                    return points
+                
+                category_insights = generate_category_graph_insights(category_forecast, selected_category)
+                
+                st.markdown(
+                    f"""
+                    <div style="
+                        background: linear-gradient(135deg, #111827, #1f2937);
+                        border: 2px solid #22c55e;
+                        border-radius: 16px;
+                        padding: 24px;
+                        margin: 20px 0;
+                        box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+                    ">
+                        <h4 style="color: #22c55e; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                            📊 Business Analyst Insights: {selected_category} Forecast Analysis
+                        </h4>
+                        <ol style="color: #e5e7eb; line-height: 1.8; font-size: 14px; padding-left: 20px; margin: 0;">
+                            {''.join([f'<li style="margin-bottom: 16px;">{point}</li>' for point in category_insights])}
+                        </ol>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
         # What-If Scenario Analysis
         elif st.session_state.active_sidebar_page == "what_if":
@@ -1230,10 +1383,34 @@ if st.session_state.intro_step >= 3:
             with st.expander("ℹ️ What-if scenario explanation"):
                 st.write(
                     """
-                    This simulation shows **expected demand changes** if you modify
-                    discount or marketing spend.
-                    - Baseline: last known real values
-                    - Scenario: adjusted values from sliders
+                    **What This Graph Shows:**
+                    
+                    This is a simulation tool that helps you see what might happen to sales if you change your 
+                    business strategy. Think of it as a "crystal ball" for your business decisions - it shows 
+                    predicted outcomes before you actually make changes.
+                    
+                    **How It Works:**
+                    
+                    1. **Baseline Forecast**: Without any changes, this shows what sales would look like based on 
+                       current trends and patterns.
+                    
+                    2. **Scenario Simulation**: When you adjust the discount or marketing spend sliders, the graph 
+                       recalculates to show the potential impact on future sales.
+                    
+                    3. **Real-World Application**: Use this to answer questions like:
+                       - "What if I increase discounts by 20%?"
+                       - "How would sales change if I double my marketing budget?"
+                       - "Is it worth investing more in promotions?"
+                    
+                    **What to Look For:**
+                    - **Line goes up**: Your proposed changes could increase sales
+                    - **Line goes down**: The changes might negatively impact sales
+                    - **Line stays similar**: The changes have minimal effect
+                    
+                    **Important Note:**
+                    These are predictions based on historical patterns. Real-world results may vary due to 
+                    competition, market conditions, and other factors. Use this as a planning tool, not an 
+                    absolute guarantee.
                     """
                 )
 
@@ -1250,6 +1427,147 @@ if st.session_state.intro_step >= 3:
             )
 
             st.plotly_chart(fig_whatif, width="stretch")
+            
+            # Explain Graph button for what-if scenario
+            if "whatif_graph_insight_shown" not in st.session_state:
+                st.session_state.whatif_graph_insight_shown = False
+            
+            if st.button("🔍 Explain Graph", key="explain_whatif_graph", use_container_width=False):
+                st.session_state.whatif_graph_insight_shown = not st.session_state.whatif_graph_insight_shown
+                st.rerun()
+            
+            if st.session_state.whatif_graph_insight_shown:
+                def generate_whatif_graph_insights(what_if, discount_change, marketing_change):
+                    """Generate business analyst insights for what-if scenario graph"""
+                    points = []
+                    
+                    # 1. Scenario summary
+                    discount_pct = discount_change * 100
+                    marketing_pct = marketing_change * 100
+                    
+                    if discount_pct > 0 and marketing_pct > 0:
+                        scenario = f"combined strategy with {discount_pct:.0f}% discount increase and {marketing_pct:.0f}% marketing spend increase"
+                        scenario_icon = "🔄"
+                    elif discount_pct > 0:
+                        scenario = f"{discount_pct:.0f}% discount increase strategy"
+                        scenario_icon = "💰"
+                    elif marketing_pct > 0:
+                        scenario = f"{marketing_pct:.0f}% marketing spend increase strategy"
+                        scenario_icon = "📢"
+                    else:
+                        scenario = "baseline scenario (no changes)"
+                        scenario_icon = "📊"
+                    
+                    points.append(f"{scenario_icon} **Scenario Overview**: This simulation models the {scenario} compared to baseline operations. The graph shows projected demand changes over the forecast horizon.")
+                    
+                    # 2. Impact magnitude
+                    avg_forecast = what_if["yhat"].mean()
+                    # We need baseline for comparison - approximate it
+                    baseline_approx = what_if["yhat"].iloc[0]  # First value as baseline proxy
+                    impact = ((avg_forecast - baseline_approx) / baseline_approx) * 100 if baseline_approx > 0 else 0
+                    
+                    if impact > 10:
+                        impact_level = "significant positive impact"
+                        impact_icon = "📈"
+                        interpretation = "strongly suggests the proposed changes would substantially boost sales"
+                    elif impact > 3:
+                        impact_level = "moderate positive impact"
+                        impact_icon = "📊"
+                        interpretation = "indicates the strategy could yield meaningful sales improvements"
+                    elif impact > -3:
+                        impact_level = "minimal impact"
+                        impact_icon = "➡️"
+                        interpretation = "suggests the changes may not significantly alter demand patterns"
+                    else:
+                        impact_level = "negative impact"
+                        impact_icon = "📉"
+                        interpretation = "warns that the proposed changes could reduce sales volumes"
+                    
+                    points.append(f"{impact_icon} **Expected Impact**: The simulation projects {impact:.1f}% average change in demand, indicating {impact_level} that {interpretation}.")
+                    
+                    # 3. Trend direction
+                    first_val = what_if["yhat"].iloc[0]
+                    last_val = what_if["yhat"].iloc[-1]
+                    trend = ((last_val - first_val) / first_val) * 100 if first_val > 0 else 0
+                    
+                    if trend > 5:
+                        trend_desc = "accelerating growth trajectory"
+                        trend_icon = "🚀"
+                    elif trend > 0:
+                        trend_desc = "steady upward trajectory"
+                        trend_icon = "📈"
+                    elif trend > -5:
+                        trend_desc = "relatively stable pattern"
+                        trend_icon = "➡️"
+                    else:
+                        trend_desc = "declining trajectory"
+                        trend_icon = "📉"
+                    
+                    points.append(f"{trend_icon} **Trajectory Analysis**: Over the forecast period, demand shows a {trend_desc} ({trend:.1f}% end-to-end change), {'suggesting sustained positive momentum' if trend > 3 else 'indicating potential stability concerns' if trend < -3 else 'reflecting relatively consistent demand expectations'}.")
+                    
+                    # 4. ROI considerations
+                    if discount_pct > 0 and marketing_pct > 0:
+                        points.append(f"💼 **Investment Analysis**: The scenario combines price reduction (discount) and marketing investment. While discounting may improve volume, it reduces profit margins. Marketing investment increases costs but may build long-term brand value. The net impact depends on margin structures and customer acquisition costs.")
+                    elif discount_pct > 0:
+                        points.append(f"💼 **Profitability Considerations**: A {discount_pct:.0f}% discount increase improves volume but reduces per-unit profit margins. The strategy is viable if volume growth compensates for margin compression, typically requiring {abs(discount_pct * 1.5):.0f}%+ volume increase to maintain profitability.")
+                    elif marketing_pct > 0:
+                        points.append(f"💼 **Marketing ROI**: A {marketing_pct:.0f}% marketing spend increase requires generating sufficient incremental sales to exceed the investment. Break-even analysis suggests the forecasted demand increase should justify the marketing cost increase for positive ROI.")
+                    else:
+                        points.append(f"💼 **Baseline Comparison**: This represents current operations without changes. Use this as a reference point to evaluate the incremental value of proposed strategic adjustments.")
+                    
+                    # 5. Risk and uncertainty
+                    volatility = (what_if["yhat"].std() / avg_forecast) * 100 if avg_forecast > 0 else 0
+                    if volatility > 20:
+                        risk = "higher volatility"
+                        risk_icon = "⚠️"
+                        caution = "demands careful monitoring and flexible execution to adapt to changing market responses"
+                    else:
+                        risk = "moderate volatility"
+                        risk_icon = "✅"
+                        caution = "enables more predictable planning and resource allocation"
+                    
+                    points.append(f"{risk_icon} **Execution Risk**: The forecast exhibits {risk} ({volatility:.1f}% standard deviation), which {caution}. Actual results may vary from projections due to competitive responses, market conditions, and external factors.")
+                    
+                    # 6. Recommendation
+                    if impact > 10 and trend > 3:
+                        recommendation = "proceed with implementation, monitor results closely, and scale up if early indicators are positive"
+                        rec_icon = "✅"
+                    elif impact > 3:
+                        recommendation = "consider pilot testing in a limited market or time period before full rollout to validate assumptions"
+                        rec_icon = "🔄"
+                    elif impact < -3:
+                        recommendation = "reconsider the proposed changes or explore alternative strategies with potentially better outcomes"
+                        rec_icon = "🛑"
+                    else:
+                        recommendation = "evaluate the cost-benefit trade-off carefully, as minimal impact may not justify the investment or margin sacrifice"
+                        rec_icon = "⚖️"
+                    
+                    points.append(f"{rec_icon} **Strategic Recommendation**: Given the projected impact of {impact:.1f}% and trajectory of {trend:.1f}%, management should {recommendation} to optimize decision-making and resource allocation.")
+                    
+                    return points
+                
+                whatif_insights = generate_whatif_graph_insights(what_if, discount_change, marketing_change)
+                
+                st.markdown(
+                    f"""
+                    <div style="
+                        background: linear-gradient(135deg, #111827, #1f2937);
+                        border: 2px solid #22c55e;
+                        border-radius: 16px;
+                        padding: 24px;
+                        margin: 20px 0;
+                        box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+                    ">
+                        <h4 style="color: #22c55e; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                            📊 Business Analyst Insights: What-If Scenario Analysis
+                        </h4>
+                        <ol style="color: #e5e7eb; line-height: 1.8; font-size: 14px; padding-left: 20px; margin: 0;">
+                            {''.join([f'<li style="margin-bottom: 16px;">{point}</li>' for point in whatif_insights])}
+                        </ol>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
         # LLM Relationship Explainer
         elif st.session_state.active_sidebar_page == "llm_relationship":
@@ -1366,14 +1684,45 @@ if st.session_state.intro_step >= 3:
             with st.expander("📉 Understanding forecast uncertainty"):
                 st.write(
                     """
-                    Prophet forecasts include **uncertainty intervals**:
-
-                    - **Lower bound (yhat_lower)**: Conservative estimate  
-                    - **Upper bound (yhat_upper)**: Optimistic estimate  
-                    - **Actual demand is likely to fall within this range**
-
-                    Wider bands = higher uncertainty  
-                    Narrow bands = more stable demand pattern
+                    **What Are Uncertainty Intervals?**
+                    
+                    Think of forecast uncertainty like a weather forecast. When a meteorologist says "high of 75°F 
+                    with a range of 70-80°F," they're acknowledging that the actual temperature could vary. Similarly, 
+                    our sales forecast shows a predicted value plus a range of possible outcomes.
+                    
+                    **The Three Lines Explained:**
+                    
+                    1. **Middle Line (Forecast)**: This is our "best guess" - the most likely sales number based on 
+                       historical patterns, trends, and seasonality. It's what we'd bet on if we had to pick one number.
+                    
+                    2. **Lower Bound (Conservative Estimate)**: This represents the pessimistic scenario - the lowest 
+                       reasonable sales number we might see. Use this for worst-case planning (minimum inventory needs, 
+                       cash flow planning).
+                    
+                    3. **Upper Bound (Optimistic Estimate)**: This represents the best-case scenario - the highest 
+                       reasonable sales number. Use this for opportunity planning (potential upside, capacity needs).
+                    
+                    **What the Width Tells You:**
+                    
+                    - **Narrow Bands (Close Together)**: High confidence. The model is relatively certain about future 
+                      demand. Good for making firm commitments, ordering inventory, or setting budgets.
+                    
+                    - **Wide Bands (Far Apart)**: Lower confidence. More variability is expected. Better for flexible 
+                      planning - keep options open, use rolling forecasts, maintain buffer inventory.
+                    
+                    **Why Uncertainty Exists:**
+                    
+                    Forecasting gets harder the further you look ahead. Think of it like throwing a ball - you can 
+                    predict where it'll land if you throw it a few feet, but it's much harder if you throw it far away. 
+                    Similarly:
+                    - Short-term forecasts (1-4 weeks): Usually more accurate, narrower bands
+                    - Long-term forecasts (2-3 months): Less accurate, wider bands
+                    
+                    **How to Use This Information:**
+                    
+                    Don't just look at the middle line - consider the entire range when making decisions. If the bands 
+                    are wide, be more flexible in your planning. If they're narrow, you can be more confident in your 
+                    decisions. Always have a backup plan for outcomes outside the expected range.
                     """
                 )
 
