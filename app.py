@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import re
 from preprocessing.data_preprocessing import load_data, preprocess_data
 from forecasting.prophet_model import category_wise_forecast, train_prophet, what_if_forecast
 from insights.insights_generator import generate_insights
@@ -11,6 +12,22 @@ from data_analysis.relationship_analysis import analyze_relationship
 
 if "show_intro" not in st.session_state:
     st.session_state.show_intro = True
+
+# Initialize sidebar page state
+if "active_sidebar_page" not in st.session_state:
+    st.session_state.active_sidebar_page = None
+
+# Initialize category explanation state
+if "active_category_explanation" not in st.session_state:
+    st.session_state.active_category_explanation = None
+
+# Initialize business question answer state
+if "active_question_answer" not in st.session_state:
+    st.session_state.active_question_answer = None
+
+# Initialize relationship explanation state
+if "active_relationship_explanation" not in st.session_state:
+    st.session_state.active_relationship_explanation = None
 
 # ---------------- GLOBAL UI THEME ----------------
 st.markdown(
@@ -304,6 +321,47 @@ st.set_page_config(
     page_title="Sales Forecast Dashboard",
     layout="wide"
 )
+
+# ---------------- SIDEBAR NAVIGATION ----------------
+st.sidebar.markdown("## 📋 Navigation")
+st.sidebar.markdown("---")
+
+# Sidebar buttons
+sidebar_pages = {
+    "Data Relationships Explorer": "data_relationships",
+    "Category-wise Forecast": "category_forecast",
+    "What-If Scenario Analysis": "what_if",
+    "LLM Relationship Explainer": "llm_relationship",
+    "Executive Summary": "executive_summary",
+    "Model Performance Explained": "model_performance",
+    "Ask Business Questions": "ask_questions"
+}
+
+for page_name, page_key in sidebar_pages.items():
+    if st.sidebar.button(page_name, key=f"sidebar_{page_key}", use_container_width=True):
+        st.session_state.active_sidebar_page = page_key
+        st.rerun()
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
+# Close button at bottom - styled red
+st.sidebar.markdown("""
+    <style>
+    .stButton > button[kind=""] {
+        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+        color: white !important;
+    }
+    .stButton > button[kind=""]:hover {
+        background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+if st.sidebar.button("Close Options", key="close_sidebar", use_container_width=True):
+    st.session_state.active_sidebar_page = None
+    st.rerun()
+
 # ---------------- DASHBOARD TITLE ----------------
 st.markdown("""
 <div style="display:flex; align-items:center; gap:15px;">
@@ -313,827 +371,1020 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.divider()
+
 # ---------------- MAIN DASHBOARD ----------------
 if st.session_state.intro_step >= 3:
 
-        # ---------------- TRAIN MODEL ----------------
-        # model, forecast = train_prophet(prophet_df)
-        @st.cache_resource(show_spinner=True)
-        def get_trained_model(prophet_df):
-            return train_prophet(prophet_df)
+    # ---------------- TRAIN MODEL ----------------
+    @st.cache_resource(show_spinner=True)
+    def get_trained_model(prophet_df):
+        return train_prophet(prophet_df)
 
-        model, forecast = get_trained_model(prophet_df)
+    model, forecast = get_trained_model(prophet_df)
 
+    # ---------------- INSIGHTS ----------------
+    insights = generate_insights(forecast)
+    eval_metrics = evaluate_forecast(
+        actual=prophet_df["y"].iloc[-30:],
+        predicted=forecast["yhat"].iloc[-30:]
+    )
 
-        # ---------------- INSIGHTS ----------------
-        insights = generate_insights(forecast)
-        eval_metrics = evaluate_forecast(
-            # prophet_df["y"].tail(30),
-            # forecast["yhat"].iloc[:30]
-            actual=prophet_df["y"].iloc[-30:],
-            predicted=forecast["yhat"].iloc[-30:]
+    # ---------------- OVERALL FORECAST ----------------
+    st.subheader("📈 Overall Sales Forecast")
+    with st.expander("ℹ️ What does this forecast show?"):
+        st.write(
+            """
+            This chart shows the **predicted future units sold over time**.
+            - The central line is the expected demand forecast.
+            - Predictions are based on historical trends, seasonality,
+            price, discount, and marketing spend.
+            """
         )
 
+    fig_forecast = px.line(
+        forecast,
+        x="ds",
+        y="yhat",
+        title="Overall Sales Forecast (Units Sold)",
+        labels={"ds": "Date", "yhat": "Units Sold"},
+        color_discrete_sequence=["#22c55e"]
+    )
 
-        # ---------------- METRICS (UNCHANGED) ----------------
-        st.markdown("### 🔑 Key Metrics")
+    fig_forecast.update_traces(
+        hovertemplate="Date: %{x}<br>Units Sold: %{y}<extra></extra>"
+    )
 
-        with st.container():
-            col1, col2, col3 = st.columns(3)
-
-            col1.metric("Avg Units Sold", insights["average_sales"])
-            col2.metric("Best Period", insights["best_period"])
-            col3.metric("Worst Period", insights["worst_period"])
-            # col1.metric("Avg Units Sold", insights["average_sales"])
-            # col2.metric("Best Day", insights["best_day"])
-            # col3.metric("Worst Day", insights["worst_day"])
-
-
-
-
-
-        # ---------------- OVERALL FORECAST (UNCHANGED) ----------------
-        st.subheader("📈 Overall Sales Forecast")
-        with st.expander("ℹ️ What does this forecast show?"):
-            st.write(
-                """
-                This chart shows the **predicted future units sold over time**.
-                - The central line is the expected demand forecast.
-                - Predictions are based on historical trends, seasonality,
-                price, discount, and marketing spend.
-                """
-            )
-
-        # st.line_chart(forecast.set_index("ds")[["yhat"]])
-        fig_forecast = px.line(
-            forecast,
-            x="ds",
-            y="yhat",
-            title="Overall Sales Forecast (Units Sold)",
-            labels={"ds": "Date", "yhat": "Units Sold"},
-            color_discrete_sequence=["#22c55e"]
-        )
-
-        fig_forecast.update_traces(
-            hovertemplate="Date: %{x}<br>Units Sold: %{y}<extra></extra>"
-        )
-
-        st.plotly_chart(fig_forecast, width="stretch")
-
-
-        # -----executive summary button-----
-        st.divider()
-        st.header("🧠 Executive Summary")
-
-        st.caption(
-            "Click to generate an AI-driven executive summary. "
-        )
-
-        if st.button("📌 Generate Executive Summary", key="exec_summary_btn"):
-
-            summary = ask_llm(
-                """
-            You are a senior business analyst preparing an executive briefing for leadership.
-
-            TASK:
-            Generate a single executive summary paragraph strictly based on data, forecasts, and model performance.
-
-            MANDATORY DATA POINTS (ALL MUST BE USED):
-            - Overall sales trend direction
-            - Short-term forecast confidence based on MAE and RMSE
-            - Long-term forecast uncertainty
-            - Impact of price, discount, and marketing on demand
-            - Business suitability of the model for planning decisions
-
-            CONTEXT:
-            - Forecasting model: Prophet with regressors
-            - Model accuracy metrics: MAE and RMSE (lower is better)
-            - Forecast uncertainty increases with time horizon
-            - Relationships represent correlation, not causation
-
-            STRICT OUTPUT RULES:
-            - EXACTLY 70–90 words
-            - ONE paragraph only
-            - No bullet points
-            - Executive, analytical tone
-            - No generic phrases
-            - No disclaimers like “data not available”
-            - Do not explain methodology
-            - Focus on implications and decisions
-
-            AUDIENCE:
-            C-level executives and senior management
-            """,
-                insights,
-                df=processed_df,
-                eval_metrics=eval_metrics
-            )
-
-            # st.markdown(render_confidence_text(summary), unsafe_allow_html=True)
-            st.markdown(summary)
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-
-        with st.expander("📉 Understanding forecast uncertainty"):
-            st.write(
-                """
-                Prophet forecasts include **uncertainty intervals**:
-
-                - **Lower bound (yhat_lower)**: Conservative estimate  
-                - **Upper bound (yhat_upper)**: Optimistic estimate  
-                - **Actual demand is likely to fall within this range**
-
-                Wider bands = higher uncertainty  
-                Narrow bands = more stable demand pattern
-                """
-            )
-
-
-        # ---------------- BUSINESS INSIGHTS (UNCHANGED) ----------------
-        st.subheader("📌 Business Insights")
-        for k, v in insights.items():
-            st.write(f"**{k.replace('_',' ').title()}**: {v}")
-
-        st.divider()
-        st.header("📦 Category Growth Comparison")
-
-        st.caption(
-            "Compares recent sales momentum across product categories to identify growth leaders and laggards."
-        )
-
-        # ---------------- CATEGORY GROWTH LOGIC ----------------
-        category_trend_df = (
-        processed_df
-        .groupby(["product_category", "date"], observed=True)["units_sold"]
-        .sum()
-        .reset_index()
-        )
-
-
-        # Use recent window (last 30 days vs previous 30 days)
-        latest_date = category_trend_df["date"].max()
-        recent_start = latest_date - pd.Timedelta(days=30)
-        previous_start = latest_date - pd.Timedelta(days=60)
-
-        recent_sales = (
-            category_trend_df[category_trend_df["date"] >= recent_start]
-            .groupby("product_category",observed=True)["units_sold"]
-            .sum()
-        )
-
-        previous_sales = (
-            category_trend_df[
-                (category_trend_df["date"] >= previous_start) &
-                (category_trend_df["date"] < recent_start)
-            ]
-            .groupby("product_category",observed=True)["units_sold"]
-            .sum()
-        )
-
-        growth_df = (
-            pd.DataFrame({
-                "Recent Sales": recent_sales,
-                "Previous Sales": previous_sales
-            })
-            .fillna(0)
-        )
-
-        growth_df["Growth %"] = (
-            (growth_df["Recent Sales"] - growth_df["Previous Sales"])
-            / growth_df["Previous Sales"].replace(0, 1)
-        ) * 100
-
-        # ---------------- GROWTH STATUS LABEL ----------------
-        def growth_badge(value):
-            if value > 5:
-                return "🟢 Growing ↑"
-            elif value < -5:
-                return "🔴 Declining ↓"
+    st.plotly_chart(fig_forecast, width="stretch")
+    
+    # Generate forecast insights button
+    if "forecast_insights_shown" not in st.session_state:
+        st.session_state.forecast_insights_shown = False
+    
+    if st.button("🔍 Generate Insight", key="generate_forecast_insight", use_container_width=False):
+        st.session_state.forecast_insights_shown = not st.session_state.forecast_insights_shown
+        st.rerun()
+    
+    if st.session_state.forecast_insights_shown:
+        # Generate business analyst insights from the forecast
+        def generate_forecast_insights(forecast, insights, eval_metrics):
+            """Generate 5 business analyst insights from the forecast graph"""
+            points = []
+            
+            # 1. Trend direction and momentum
+            trend_series = forecast["trend"].rolling(7).mean()
+            trend_change = trend_series.iloc[-1] - trend_series.iloc[0]
+            if trend_change > 0:
+                momentum = "upward"
+                direction_icon = "📈"
             else:
-                return "🟠 Stable →"
-
-        growth_df["Status"] = growth_df["Growth %"].apply(growth_badge)
-
-        growth_df = growth_df.reset_index().sort_values("Growth %", ascending=False)
-
-        fig_growth = px.bar(
-            growth_df,
-            x="product_category",
-            y="Growth %",
-            color="Growth %",
-            color_continuous_scale=["#ef4444", "#f59e0b", "#22c55e"],
-            title="Category-wise Sales Growth (Last 30 Days vs Previous 30 Days)"
+                momentum = "downward"
+                direction_icon = "📉"
+            trend_pct = abs((trend_change / abs(trend_series.iloc[0])) * 100) if trend_series.iloc[0] != 0 else 0
+            points.append(f"{direction_icon} **Trend Analysis**: The forecast shows a {momentum} trajectory with approximately {trend_pct:.1f}% change over the forecast period, indicating {'sustained growth momentum' if momentum == 'upward' else 'potential demand contraction'}.")
+            
+            # 2. Volatility and stability
+            last_30 = forecast["yhat"].tail(30)
+            volatility = (last_30.std() / last_30.mean()) * 100 if last_30.mean() > 0 else 0
+            if volatility < 10:
+                stability = "highly stable"
+                stability_icon = "✅"
+            elif volatility < 20:
+                stability = "moderately stable"
+                stability_icon = "⚖️"
+            else:
+                stability = "volatile"
+                stability_icon = "⚠️"
+            points.append(f"{stability_icon} **Demand Stability**: Forecast volatility of {volatility:.1f}% indicates {stability} demand patterns, {'enabling reliable inventory planning' if volatility < 15 else 'requiring flexible supply chain management'}.")
+            
+            # 3. Peak vs trough performance
+            peak = forecast["yhat"].max()
+            trough = forecast["yhat"].min()
+            peak_date = forecast.loc[forecast["yhat"].idxmax(), "ds"]
+            trough_date = forecast.loc[forecast["yhat"].idxmin(), "ds"]
+            peak_trough_gap = ((peak - trough) / trough) * 100 if trough > 0 else 0
+            points.append(f"📊 **Performance Range**: Peak demand ({peak:.0f} units) occurs around {peak_date.strftime('%B %d')} while lowest demand ({trough:.0f} units) is projected around {trough_date.strftime('%B %d')}, representing a {peak_trough_gap:.1f}% variation that {'suggests strong seasonality' if peak_trough_gap > 30 else 'indicates relatively consistent demand'}.")
+            
+            # 4. Forecast confidence and uncertainty
+            uncertainty_range = ((forecast["yhat_upper"].tail(30) - forecast["yhat_lower"].tail(30)).mean()) / last_30.mean() * 100
+            mae = eval_metrics.get("MAE", 0)
+            if uncertainty_range < 15 and mae < last_30.mean() * 0.1:
+                confidence = "high"
+                confidence_icon = "🟢"
+            elif uncertainty_range < 25:
+                confidence = "moderate"
+                confidence_icon = "🟠"
+            else:
+                confidence = "low"
+                confidence_icon = "🔴"
+            points.append(f"{confidence_icon} **Forecast Confidence**: With a mean absolute error of {mae:.2f} units and uncertainty bands of ±{uncertainty_range:.1f}%, the forecast demonstrates {confidence} reliability for {'operational decision-making' if confidence == 'high' else 'strategic planning purposes'}.")
+            
+            # 5. Business implications and recommendations
+            avg_forecast = last_30.mean()
+            forecast_change = ((forecast["yhat"].iloc[-1] - forecast["yhat"].iloc[0]) / forecast["yhat"].iloc[0]) * 100 if forecast["yhat"].iloc[0] > 0 else 0
+            if forecast_change > 5:
+                implication = "positive growth outlook"
+                recommendation = "consider capacity expansion and inventory buildup"
+            elif forecast_change < -5:
+                implication = "declining demand trend"
+                recommendation = "implement demand stimulation strategies or optimize inventory levels"
+            else:
+                implication = "stable demand expectations"
+                recommendation = "maintain current operational levels with focus on efficiency"
+            points.append(f"💼 **Business Implications**: The forecast projects {forecast_change:.1f}% change by period end, indicating a {implication}. Management should {recommendation} to align with projected demand.")
+            
+            return points
+        
+        forecast_insights = generate_forecast_insights(forecast, insights, eval_metrics)
+        
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #111827, #1f2937);
+                border: 2px solid #22c55e;
+                border-radius: 16px;
+                padding: 24px;
+                margin: 20px 0;
+                box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+            ">
+                <h4 style="color: #22c55e; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                    📊 Business Analyst Insights: Sales Forecast Analysis
+                </h4>
+                <ol style="color: #e5e7eb; line-height: 1.8; font-size: 14px; padding-left: 20px; margin: 0;">
+                    {''.join([f'<li style="margin-bottom: 16px;">{point}</li>' for point in forecast_insights])}
+                </ol>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
-        fig_growth.update_layout(
-            xaxis_title="Product Category",
-            yaxis_title="Growth Percentage (%)",
-            template="plotly_dark",
-            height=420
-        )
-
-        st.plotly_chart(fig_growth, width="stretch")
-
-        # if st.button("📊 Explain Category Growth with AI", key="category_growth_ai"):
-
-        #     category_summary = growth_df[[
-        #         "product_category", "Recent Sales", "Previous Sales", "Growth %"
-        #     ]].to_dict(orient="records")
-
-        #     prompt = f"""
-        # You are a senior business analyst preparing an executive briefing.
-
-        # DATA PROVIDED:
-        # Category-wise sales comparison between two periods (last 30 days vs previous 30 days):
-        # {category_summary}
-
-        # OBJECTIVE:
-        # Explain which categories are growing, which are declining, and what this means for the business.
-
-        # INSTRUCTIONS:
-        # - Length: 60–80 words
-        # - Executive, decision-oriented tone
-        # - Highlight growth leaders and laggards
-        # - Avoid speculation
-        # - Do NOT use bullet points
-        # - Do NOT mention data availability issues
-        # - Focus on demand momentum and planning implications
-        # """
-
-        #     explanation = ask_llm(
-        #         prompt,
-        #         insights,
-        #         df=processed_df,
-        #         eval_metrics=eval_metrics
-        #     )
-
-        #     st.markdown(
-        #         f"""
-        #         <div style="
-        #             background: linear-gradient(180deg, #020617, #020617);
-        #             border: 1px solid #1e293b;
-        #             border-radius: 14px;
-        #             padding: 20px;
-        #         ">
-        #         {explanation}
-        #         </div>
-        #         """,
-        #         unsafe_allow_html=True
-        #     )
-
-        st.subheader("🤖 Explain Category Performance")
-
-        for _, row in growth_df.iterrows():
-            category = row["product_category"]
-            growth_pct = row["Growth %"]
-            status = row["Status"]
-
-            col1, col2 = st.columns([3, 1])
-
-            with col1:
-                st.markdown(
-                    f"**{category}** — {status} ({growth_pct:.1f}%)"
-                )
-
-            with col2:
-                if st.button(
-                    f"Explain {category}",
-                    key=f"explain_{category}"
-                ):
-                    if "Declining" in status:
-                        prompt = f"""
-                    You are a senior business analyst.
-
-                    CATEGORY: {category}
-                    STATUS: Declining ({growth_pct:.1f}%)
-
-                    TASK:
-                    Explain why this category is declining and what the forecast implies.
-
-                    RULES:
-                    - 50–60 words
-                    - No optimistic framing
-                    - Focus on risk, trend, and corrective action
-                    - Use forecast cautiously
-                    """
-                    elif "Growing" in status:
-                        prompt = f"""
-                    You are a senior business analyst.
-
-                    CATEGORY: {category}
-                    STATUS: Growing ({growth_pct:.1f}%)
-
-                    TASK:
-                    Explain growth sustainability using forecast outlook.
-
-                    RULES:
-                    - 50–60 words
-                    - Highlight opportunities and risks
-                    """
-                    else:
-                        prompt = f"""
-                    You are a senior business analyst.
-
-                    CATEGORY: {category}
-                    STATUS: Stable ({growth_pct:.1f}%)
-
-                    TASK:
-                    Explain stability and potential directional risks.
-
-                    RULES:
-                    - 50–60 words
-                    """
-
-                    explanation = ask_llm(
-                    question=category,
-                    insights={
-                        "category_status": status,
-                        "category_growth": f"{growth_pct:.1f}%"
-                    },
-                    df=processed_df,
-                    intent="category_explanation"
-                    )
-
-
+    # ---------------- BUSINESS INSIGHTS ----------------
+    st.subheader("📌 Business Insights")
+    
+    # Generate additional insights
+    def generate_additional_insights(insights, forecast, processed_df, eval_metrics):
+        """Generate additional business insights from available data"""
+        additional = {}
+        
+        # Growth trajectory
+        trend_series = forecast["trend"].rolling(7).mean()
+        trend_change_pct = ((trend_series.iloc[-1] - trend_series.iloc[0]) / abs(trend_series.iloc[0])) * 100 if trend_series.iloc[0] != 0 else 0
+        additional["growth_trajectory"] = f"{abs(trend_change_pct):.1f}% {'increase' if trend_change_pct > 0 else 'decrease'}"
+        
+        # Forecast uncertainty range
+        last_30_forecast = forecast["yhat"].tail(30)
+        uncertainty_range = ((forecast["yhat_upper"].tail(30) - forecast["yhat_lower"].tail(30)).mean()) / last_30_forecast.mean() * 100
+        additional["forecast_uncertainty"] = f"±{uncertainty_range:.1f}% range"
+        
+        # Peak vs average performance
+        peak_forecast = forecast["yhat"].max()
+        avg_forecast = forecast["yhat"].mean()
+        peak_advantage = ((peak_forecast - avg_forecast) / avg_forecast) * 100
+        additional["peak_performance"] = f"{peak_advantage:.1f}% above average"
+        
+        # Model accuracy summary
+        mae = eval_metrics.get("MAE", 0)
+        rmse = eval_metrics.get("RMSE", 0)
+        avg_value = last_30_forecast.mean()
+        accuracy_pct = (1 - (mae / avg_value)) * 100 if avg_value > 0 else 0
+        additional["model_accuracy"] = f"{accuracy_pct:.1f}% accuracy"
+        
+        # Price sensitivity (from processed_df)
+        if "price" in processed_df.columns and "units_sold" in processed_df.columns:
+            price_corr = processed_df[["price", "units_sold"]].corr().iloc[0, 1]
+            if abs(price_corr) < 0.2:
+                additional["price_sensitivity"] = "Low sensitivity"
+            elif price_corr < 0:
+                additional["price_sensitivity"] = "Negative correlation"
+            else:
+                additional["price_sensitivity"] = "Positive correlation"
+        
+        # Marketing effectiveness
+        if "marketing_spend" in processed_df.columns:
+            marketing_corr = processed_df[["marketing_spend", "units_sold"]].corr().iloc[0, 1]
+            if abs(marketing_corr) >= 0.4:
+                additional["marketing_effectiveness"] = "Strong impact"
+            elif abs(marketing_corr) >= 0.2:
+                additional["marketing_effectiveness"] = "Moderate impact"
+            else:
+                additional["marketing_effectiveness"] = "Limited impact"
+        
+        # Category diversity
+        if "product_category" in processed_df.columns:
+            num_categories = processed_df["product_category"].nunique()
+            additional["category_diversity"] = f"{num_categories} categories"
+        
+        # Forecast horizon confidence
+        short_term_std = forecast["yhat"].tail(15).std()
+        long_term_std = forecast["yhat"].tail(30).std()
+        if long_term_std / short_term_std > 1.2:
+            additional["forecast_horizon"] = "Decreasing confidence"
+        else:
+            additional["forecast_horizon"] = "Stable confidence"
+        
+        return additional
+    
+    # Combine original and additional insights
+    additional_insights = generate_additional_insights(insights, forecast, processed_df, eval_metrics)
+    
+    # Prepare all insights for display with icons and categories
+    all_insights = [
+        # Trend & Performance
+        {"icon": "📈", "title": "Sales Trend", "value": insights.get("trend", "N/A"), "subtitle": insights.get("trend_confidence", "")},
+        {"icon": "🎯", "title": "Growth Trajectory", "value": additional_insights.get("growth_trajectory", "N/A"), "subtitle": "7-day rolling trend"},
+        {"icon": "⭐", "title": "Best Performance Period", "value": insights.get("best_period", "N/A"), "subtitle": "Peak weekly average"},
+        {"icon": "📉", "title": "Worst Performance Period", "value": insights.get("worst_period", "N/A"), "subtitle": "Lowest weekly average"},
+        
+        # Forecast Metrics
+        {"icon": "📊", "title": "Average Daily Sales", "value": f"{insights.get('average_sales', 0):.2f} units", "subtitle": "Last 30 days baseline"},
+        {"icon": "📅", "title": "Monthly Baseline", "value": f"{insights.get('baseline_units_per_month', 0):.0f} units", "subtitle": "30-day projection"},
+        {"icon": "🔮", "title": "Forecast Uncertainty", "value": additional_insights.get("forecast_uncertainty", "N/A"), "subtitle": "Confidence interval range"},
+        
+        # Model Performance
+        {"icon": "🎯", "title": "Model Accuracy", "value": additional_insights.get("model_accuracy", "N/A"), "subtitle": "Based on MAE & RMSE"},
+        {"icon": "📐", "title": "Forecast Stability", "value": insights.get("forecast_stability", "N/A"), "subtitle": insights.get("forecast_confidence", "")},
+        {"icon": "📈", "title": "Forecast Horizon", "value": additional_insights.get("forecast_horizon", "N/A"), "subtitle": "Time-based confidence"},
+        
+        # Market Dynamics
+        {"icon": "📢", "title": "Marketing Effectiveness", "value": additional_insights.get("marketing_effectiveness", "N/A"), "subtitle": "Spend impact analysis"},
+        {"icon": "📦", "title": "Product Diversity", "value": additional_insights.get("category_diversity", "N/A"), "subtitle": "Category coverage"},
+    ]
+    
+    # Display insights in a grid layout (3 columns)
+    cols_per_row = 3
+    num_rows = (len(all_insights) + cols_per_row - 1) // cols_per_row
+    
+    for row_idx in range(num_rows):
+        cols = st.columns(cols_per_row)
+        start_idx = row_idx * cols_per_row
+        end_idx = min(start_idx + cols_per_row, len(all_insights))
+        
+        for col_idx, col in enumerate(cols):
+            if start_idx + col_idx < end_idx:
+                insight = all_insights[start_idx + col_idx]
+                with col:
                     st.markdown(
                         f"""
                         <div style="
-                            background:#020617;
-                            border:1px solid #1e293b;
-                            border-radius:12px;
-                            padding:16px;
-                            margin-bottom:12px;
+                            background: linear-gradient(135deg, #111827, #1f2937);
+                            border: 1px solid #374151;
+                            border-radius: 14px;
+                            padding: 20px;
+                            margin-bottom: 16px;
+                            box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+                            transition: transform 0.2s, box-shadow 0.2s;
+                            height: 100%;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-between;
                         ">
-                        {explanation}
+                            <div>
+                                <div style="
+                                    font-size: 32px;
+                                    margin-bottom: 12px;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                ">
+                                    {insight["icon"]}
+                                    <h4 style="
+                                        margin: 0;
+                                        color: #f9fafb;
+                                        font-size: 16px;
+                                        font-weight: 600;
+                                    ">{insight["title"]}</h4>
+                                </div>
+                                <div style="
+                                    color: #22c55e;
+                                    font-size: 24px;
+                                    font-weight: 700;
+                                    margin: 12px 0;
+                                ">{insight["value"]}</div>
+                            </div>
+                            <div style="
+                                color: #9ca3af;
+                                font-size: 12px;
+                                margin-top: auto;
+                                padding-top: 8px;
+                                border-top: 1px solid #374151;
+                            ">{insight["subtitle"]}</div>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
 
-        # ============================================================
-        # 
-        # ============================================================
+    st.divider()
+    st.header("📦 Category Growth Comparison")
 
-        st.divider()
-        st.header("📊 Data Relationships Explorer")
+    st.caption(
+        "Compares recent sales momentum across product categories to identify growth leaders and laggards."
+    )
 
-        numeric_cols = ["units_sold", "price", "discount", "marketing_spend"]
+    # ---------------- CATEGORY GROWTH LOGIC ----------------
+    category_trend_df = (
+    processed_df
+    .groupby(["product_category", "date"], observed=True)["units_sold"]
+    .sum()
+    .reset_index()
+    )
 
-        selected_col = st.selectbox(
-            "Select a column",
-            numeric_cols,
-            key="data_relationships_column_selector"
-        )
+    # Use recent window (last 30 days vs previous 30 days)
+    latest_date = category_trend_df["date"].max()
+    recent_start = latest_date - pd.Timedelta(days=30)
+    previous_start = latest_date - pd.Timedelta(days=60)
 
-        chart_type = st.radio(
-            "Select visualization type",
-            ["Bar (Binned Average)", "Line (Trend)", "Histogram",  "Scatter", "Density"],
-            horizontal=True,
-            key="data_relationships_chart_type"
-        )
+    recent_sales = (
+        category_trend_df[category_trend_df["date"] >= recent_start]
+        .groupby("product_category",observed=True)["units_sold"]
+        .sum()
+    )
 
-        # ---------- GRID LAYOUT ----------
-        cols_per_row = 2
-        cards = []
+    previous_sales = (
+        category_trend_df[
+            (category_trend_df["date"] >= previous_start) &
+            (category_trend_df["date"] < recent_start)
+        ]
+        .groupby("product_category",observed=True)["units_sold"]
+        .sum()
+    )
 
-        for col in numeric_cols:
-            if col != selected_col:
-                cards.append(col)
+    growth_df = (
+        pd.DataFrame({
+            "Recent Sales": recent_sales,
+            "Previous Sales": previous_sales
+        })
+        .fillna(0)
+    )
 
-        rows = [cards[i:i + cols_per_row] for i in range(0, len(cards), cols_per_row)]
+    growth_df["Growth %"] = (
+        (growth_df["Recent Sales"] - growth_df["Previous Sales"])
+        / growth_df["Previous Sales"].replace(0, 1)
+    ) * 100
 
-        for row in rows:
-            col_layout = st.columns(cols_per_row)
+    # ---------------- GROWTH STATUS LABEL ----------------
+    def growth_badge(value):
+        if value > 5:
+            return "🟢 Growing ↑"
+        elif value < -5:
+            return "🔴 Declining ↓"
+        else:
+            return "🟠 Stable →"
 
-            for idx, col in enumerate(row):
-                with col_layout[idx]:
-                    st.markdown(
-                        f"""
-                        <div style="
-                            background: linear-gradient(180deg, #0f172a, #020617);
-                            padding: 18px;
-                            border-radius: 14px;
-                            border: 1px solid #1e293b;
-                        ">
-                        <h4 style="margin-bottom:8px;">{selected_col.replace('_',' ').title()} vs {col.replace('_',' ').title()}</h4>
-                        """,
-                        unsafe_allow_html=True
-                    )
+    growth_df["Status"] = growth_df["Growth %"].apply(growth_badge)
 
-                    # -------- CHART --------
-                    if chart_type == "Scatter":
-                        fig = px.scatter(
-                            processed_df,
-                            x=selected_col,
-                            y=col,
-                            opacity=0.3
-                        )
-                    elif chart_type == "Density":
-                        fig = px.density_heatmap(
-                            processed_df,
-                            x=selected_col,
-                            y=col,
-                            nbinsx=30,
-                            nbinsy=30,
-                            color_continuous_scale="Blues"
-                        )
-                    elif chart_type == "Line (Trend)":
-                        sorted_df = processed_df.sort_values(selected_col)
-                        fig = px.line(sorted_df, x=selected_col, y=col)
-                    elif chart_type == "Histogram":
-                        fig = px.histogram(processed_df, x=selected_col, nbins=30)
-                    else:
-                        temp = processed_df[[selected_col, col]].dropna().copy()
-                        bins = pd.qcut(temp[selected_col], q=10, duplicates="drop")
-                        temp["bin"] = bins.apply(lambda x: f"{int(x.left)}–{int(x.right)}")
-                        summary = temp.groupby("bin",observed=True)[col].mean().reset_index()
-                        fig = px.bar(summary, x="bin", y=col)
+    growth_df = growth_df.reset_index().sort_values("Growth %", ascending=False)
 
-                    fig.update_layout(
-                        template="plotly_dark",
-                        margin=dict(l=10, r=10, t=10, b=10),
-                        height=260
-                    )
+    fig_growth = px.bar(
+        growth_df,
+        x="product_category",
+        y="Growth %",
+        color="Growth %",
+        color_continuous_scale=["#ef4444", "#f59e0b", "#22c55e"],
+        title="Category-wise Sales Growth (Last 30 Days vs Previous 30 Days)"
+    )
 
-                    # st.plotly_chart(fig, use_container_width=True)
-                    chart_key = f"plot_{selected_col}_{col}_{chart_type}"
+    fig_growth.update_layout(
+        xaxis_title="Product Category",
+        yaxis_title="Growth Percentage (%)",
+        template="plotly_dark",
+        height=420
+    )
 
-                    st.plotly_chart(
-                        fig,
-                        width="stretch",
-                        key=chart_key
-                    )
+    st.plotly_chart(fig_growth, width="stretch")
 
+    st.subheader("🤖 Explain Category Performance")
 
-                    # -------- QUICK INSIGHT (NO LLM) --------
-                    corr_value = processed_df[[selected_col, col]].corr().iloc[0, 1]
-                    st.markdown(generate_plot_insight(selected_col, col, corr_value))
+    # Display categories with their info and buttons side by side
+    for _, row in growth_df.iterrows():
+        category = row["product_category"]
+        growth_pct = row["Growth %"]
+        status = row["Status"]
 
-                    # -------- AI EXPLANATION (ON DEMAND ONLY) --------
-                    explain_key = f"ai_{selected_col}_{col}_{chart_type}"
-
-                    if st.button("🤖 Explain with AI", key=explain_key):
-                        analysis = analyze_relationship(processed_df, selected_col, col)
-
-                        explanation = explain_chart(
-                            x_col=selected_col,
-                            y_col=col,
-                            # chart_type=chart_type,
-                            correlation=analysis["correlation"],
-                            strength=analysis["strength"],
-                            direction=analysis["direction"],
-                            causal_statement=analysis["causal_statement"]
-                        )
-
-                        st.markdown("**📘 Executive Explanation**")
-                        st.write(explanation)
-
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-
-        # ✅ LLM EXPLANATION
-        st.divider()
-        st.markdown("""
-        <div style="background:black;padding:20px;border-radius:12px;
-        box-shadow:0 4px 10px rgba(0,0,0,0.08);">
-        <h2>🤖 LLM Relationship Explainer</h2>
-        <p style="color:#6b7280;">
-        Data-driven explanation of relationships for business decision-making
-        </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-        st.caption(
-            "Select any two variables to get a clear, data-driven explanation "
-            "of their relationship."
-        )
-
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([3, 1])
 
         with col1:
-            explain_x = st.selectbox(
-                "Select X variable",
-                numeric_cols,
-                key="llm_explain_x"
+            st.markdown(
+                f"**{category}** — {status} ({growth_pct:.1f}%)"
             )
 
         with col2:
-            explain_y = st.selectbox(
-                "Select Y variable",
+            if st.button(
+                f"Explain {category}",
+                key=f"explain_{category}",
+                use_container_width=True
+            ):
+                st.session_state.active_category_explanation = category
+                st.rerun()
+
+    # Display explanation box when a category is selected
+    if st.session_state.active_category_explanation is not None:
+        selected_cat = st.session_state.active_category_explanation
+        cat_row = growth_df[growth_df["product_category"] == selected_cat].iloc[0]
+        category = cat_row["product_category"]
+        growth_pct = cat_row["Growth %"]
+        status = cat_row["Status"]
+
+        explanation = ask_llm(
+            question=category,
+            insights={
+                "category_status": status,
+                "category_growth": f"{growth_pct:.1f}%"
+            },
+            df=processed_df,
+            intent="category_explanation"
+        )
+
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #111827, #1f2937);
+                border: 2px solid #22c55e;
+                border-radius: 16px;
+                padding: 24px;
+                margin: 20px 0;
+                box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+            ">
+                <h4 style="color: #22c55e; margin-bottom: 12px;">📊 Explanation for {category}</h4>
+                <p style="color: #e5e7eb; line-height: 1.6; font-size: 15px;">{explanation}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    # ---------------- GROWTH VS FORECAST OUTLOOK ----------------
+    st.divider()
+    st.header("📈 Growth vs Forecast Outlook")
+
+    st.caption(
+        "Combines recent growth momentum with forward-looking demand forecasts."
+    )
+
+    @st.cache_data(show_spinner=False)
+    def build_growth_forecast_df(processed_df, growth_df):
+        rows = []
+
+        for category in growth_df["product_category"]:
+            cat_forecast = category_wise_forecast(
+                processed_df, category, days=30
+            )
+
+            rows.append({
+                "Category": category,
+                "Recent Growth (%)": growth_df.loc[
+                    growth_df["product_category"] == category,
+                    "Growth %"
+                ].values[0],
+                "Avg Forecast Demand (30d)": cat_forecast["yhat"].tail(30).mean()
+            })
+
+        return pd.DataFrame(rows)
+
+    forecast_summary_df = build_growth_forecast_df(
+        processed_df, growth_df
+    )
+
+    # 🔒 SAFETY CHECK (VERY IMPORTANT)
+    st.write("Debug – Forecast Summary Preview")
+    st.dataframe(forecast_summary_df)
+
+    fig_combo = px.scatter(
+        forecast_summary_df,
+        x="Recent Growth (%)",
+        y="Avg Forecast Demand (30d)",
+        text="Category",
+        size="Avg Forecast Demand (30d)",
+        color="Recent Growth (%)",
+        color_continuous_scale=["#ef4444", "#f59e0b", "#22c55e"],
+        title="Category Growth vs Forecasted Demand"
+    )
+
+    fig_combo.update_traces(textposition="top center")
+    fig_combo.update_layout(template="plotly_dark", height=480)
+
+    st.plotly_chart(fig_combo, width="stretch")
+    
+    # Explain Table button
+    if "table_explanation_shown" not in st.session_state:
+        st.session_state.table_explanation_shown = False
+    
+    if st.button("🔍 Explain Table", key="explain_table_btn", use_container_width=False):
+        st.session_state.table_explanation_shown = not st.session_state.table_explanation_shown
+        st.rerun()
+    
+    if st.session_state.table_explanation_shown:
+        # Generate 7-8 points explaining the table
+        def generate_table_explanation(forecast_summary_df, growth_df):
+            """Generate 7-8 business analyst insights explaining the growth vs forecast table"""
+            points = []
+            
+            # 1. Overall pattern analysis
+            high_growth_categories = forecast_summary_df[forecast_summary_df["Recent Growth (%)"] > 10]
+            low_growth_categories = forecast_summary_df[forecast_summary_df["Recent Growth (%)"] < -10]
+            if len(high_growth_categories) > len(low_growth_categories):
+                pattern = "positive momentum across most categories"
+                pattern_icon = "📈"
+            elif len(low_growth_categories) > len(high_growth_categories):
+                pattern = "declining trends in majority of categories"
+                pattern_icon = "📉"
+            else:
+                pattern = "mixed performance with balanced growth and decline"
+                pattern_icon = "⚖️"
+            points.append(f"{pattern_icon} **Overall Pattern**: The table reveals {pattern}, indicating {'strong market positioning' if len(high_growth_categories) > len(low_growth_categories) else 'potential market challenges requiring strategic intervention'}.")
+            
+            # 2. Growth leaders
+            top_growth = forecast_summary_df.nlargest(1, "Recent Growth (%)")
+            if len(top_growth) > 0:
+                top_cat = top_growth.iloc[0]
+                points.append(f"⭐ **Growth Leader**: {top_cat['Category']} shows the strongest recent growth at {top_cat['Recent Growth (%)']:.1f}%, with forecasted demand of {top_cat['Avg Forecast Demand (30d)']:.0f} units, suggesting {'sustained market demand' if top_cat['Recent Growth (%)'] > 20 else 'recovering market position'}.")
+            
+            # 3. High growth, high forecast correlation
+            positive_growth = forecast_summary_df[forecast_summary_df["Recent Growth (%)"] > 0]
+            if len(positive_growth) > 0:
+                avg_forecast_positive = positive_growth["Avg Forecast Demand (30d)"].mean()
+                avg_forecast_all = forecast_summary_df["Avg Forecast Demand (30d)"].mean()
+                if avg_forecast_positive > avg_forecast_all * 1.1:
+                    correlation = "strong positive correlation"
+                    correlation_icon = "✅"
+                else:
+                    correlation = "moderate correlation"
+                    correlation_icon = "⚖️"
+                points.append(f"{correlation_icon} **Growth-Forecast Correlation**: Growing categories average {avg_forecast_positive:.0f} units forecasted demand, showing {correlation} between recent momentum and future expectations, {'validating growth sustainability' if correlation == 'strong positive correlation' else 'indicating potential forecast adjustment needs'}.")
+            
+            # 4. Declining categories analysis
+            declining = forecast_summary_df[forecast_summary_df["Recent Growth (%)"] < -5]
+            if len(declining) > 0:
+                avg_forecast_declining = declining["Avg Forecast Demand (30d)"].mean()
+                points.append(f"⚠️ **Declining Categories**: {len(declining)} category(ies) show negative growth, with average forecasted demand of {avg_forecast_declining:.0f} units, suggesting {'market repositioning may be required' if avg_forecast_declining < forecast_summary_df['Avg Forecast Demand (30d)'].mean() * 0.8 else 'forecast indicates potential recovery'}.")
+            
+            # 5. Forecast demand distribution
+            max_forecast = forecast_summary_df["Avg Forecast Demand (30d)"].max()
+            min_forecast = forecast_summary_df["Avg Forecast Demand (30d)"].min()
+            forecast_range = ((max_forecast - min_forecast) / min_forecast) * 100 if min_forecast > 0 else 0
+            if forecast_range > 100:
+                distribution = "highly variable"
+                distribution_icon = "📊"
+            else:
+                distribution = "relatively uniform"
+                distribution_icon = "📈"
+            points.append(f"{distribution_icon} **Demand Distribution**: Forecasted demand ranges from {min_forecast:.0f} to {max_forecast:.0f} units across categories ({forecast_range:.1f}% variation), indicating {distribution} category performance that {'requires category-specific strategies' if distribution == 'highly variable' else 'enables standardized planning approaches'}.")
+            
+            # 6. Strategic quadrant analysis
+            high_growth_high_demand = forecast_summary_df[
+                (forecast_summary_df["Recent Growth (%)"] > 5) & 
+                (forecast_summary_df["Avg Forecast Demand (30d)"] > forecast_summary_df["Avg Forecast Demand (30d)"].median())
+            ]
+            if len(high_growth_high_demand) > 0:
+                points.append(f"🎯 **Strategic Winners**: {len(high_growth_high_demand)} category(ies) combine strong recent growth (>5%) with above-median forecasted demand, representing priority investment opportunities for resource allocation and expansion initiatives.")
+            
+            # 7. Forecast vs growth alignment
+            misaligned = forecast_summary_df[
+                ((forecast_summary_df["Recent Growth (%)"] > 10) & (forecast_summary_df["Avg Forecast Demand (30d)"] < forecast_summary_df["Avg Forecast Demand (30d)"].median())) |
+                ((forecast_summary_df["Recent Growth (%)"] < -10) & (forecast_summary_df["Avg Forecast Demand (30d)"] > forecast_summary_df["Avg Forecast Demand (30d)"].median()))
+            ]
+            if len(misaligned) > 0:
+                points.append(f"🔍 **Forecast-Growth Misalignment**: {len(misaligned)} category(ies) show recent growth trends that {'contradict forecast expectations' if len(misaligned) > 0 else 'require model review'}, indicating potential forecasting model refinement or external factor influences that need investigation.")
+            
+            # 8. Overall business recommendation
+            avg_growth = forecast_summary_df["Recent Growth (%)"].mean()
+            total_forecast_demand = forecast_summary_df["Avg Forecast Demand (30d)"].sum()
+            if avg_growth > 5:
+                recommendation = "capitalize on growth momentum through inventory expansion and marketing amplification"
+                rec_icon = "💡"
+            elif avg_growth < -5:
+                recommendation = "implement demand stimulation strategies and consider portfolio optimization"
+                rec_icon = "🛠️"
+            else:
+                recommendation = "maintain stable operations while monitoring category-specific developments"
+                rec_icon = "📊"
+            points.append(f"{rec_icon} **Business Recommendation**: With average growth of {avg_growth:.1f}% and total forecasted demand of {total_forecast_demand:.0f} units across all categories, the organization should {recommendation} to align operations with projected market dynamics.")
+            
+            return points
+        
+        table_explanation_points = generate_table_explanation(forecast_summary_df, growth_df)
+        
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #111827, #1f2937);
+                border: 2px solid #22c55e;
+                border-radius: 16px;
+                padding: 24px;
+                margin: 20px 0;
+                box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+            ">
+                <h4 style="color: #22c55e; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                    📊 Table Analysis: Growth vs Forecast Insights
+                </h4>
+                <ol style="color: #e5e7eb; line-height: 1.8; font-size: 14px; padding-left: 20px; margin: 0;">
+                    {''.join([f'<li style="margin-bottom: 16px;">{point}</li>' for point in table_explanation_points])}
+                </ol>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    # ---------------- SIDEBAR CONTENT SECTIONS ----------------
+    if st.session_state.active_sidebar_page is not None:
+        st.divider()
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #111827, #1f2937);
+            border-radius: 16px;
+            padding: 24px;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+            border: 2px solid #22c55e;
+        ">
+        """, unsafe_allow_html=True)
+
+        # Data Relationships Explorer
+        if st.session_state.active_sidebar_page == "data_relationships":
+            st.header("📊 Data Relationships Explorer")
+
+            numeric_cols = ["units_sold", "price", "discount", "marketing_spend"]
+
+            selected_col = st.selectbox(
+                "Select a column",
                 numeric_cols,
-                key="llm_explain_y"
+                key="data_relationships_column_selector"
             )
 
-        if explain_x == explain_y:
-            st.warning("Please select two different variables.")
-        else:
-            if st.button("Explain Relationship", key="llm_explain_btn"):
+            chart_type = st.radio(
+                "Select visualization type",
+                ["Bar (Binned Average)", "Line (Trend)", "Histogram",  "Scatter", "Density"],
+                horizontal=True,
+                key="data_relationships_chart_type"
+            )
 
-                # -------- CORRELATION (DATA-DRIVEN) --------
-                analysis = analyze_relationship(
-            processed_df,
-            explain_x,
-            explain_y
-        )
+            # ---------- GRID LAYOUT ----------
+            cols_per_row = 2
+            cards = []
 
+            for col in numeric_cols:
+                if col != selected_col:
+                    cards.append(col)
 
-                st.markdown(
-                    generate_plot_insight(explain_x, explain_y, analysis["correlation"])
+            rows = [cards[i:i + cols_per_row] for i in range(0, len(cards), cols_per_row)]
+
+            for row in rows:
+                col_layout = st.columns(cols_per_row)
+
+                for idx, col in enumerate(row):
+                    with col_layout[idx]:
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background: linear-gradient(180deg, #0f172a, #020617);
+                                padding: 18px;
+                                border-radius: 14px;
+                                border: 1px solid #1e293b;
+                            ">
+                            <h4 style="margin-bottom:8px;">{selected_col.replace('_',' ').title()} vs {col.replace('_',' ').title()}</h4>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                        # -------- CHART --------
+                        if chart_type == "Scatter":
+                            fig = px.scatter(
+                                processed_df,
+                                x=selected_col,
+                                y=col,
+                                opacity=0.3
+                            )
+                        elif chart_type == "Density":
+                            fig = px.density_heatmap(
+                                processed_df,
+                                x=selected_col,
+                                y=col,
+                                nbinsx=30,
+                                nbinsy=30,
+                                color_continuous_scale="Blues"
+                            )
+                        elif chart_type == "Line (Trend)":
+                            sorted_df = processed_df.sort_values(selected_col)
+                            fig = px.line(sorted_df, x=selected_col, y=col)
+                        elif chart_type == "Histogram":
+                            fig = px.histogram(processed_df, x=selected_col, nbins=30)
+                        else:
+                            temp = processed_df[[selected_col, col]].dropna().copy()
+                            bins = pd.qcut(temp[selected_col], q=10, duplicates="drop")
+                            temp["bin"] = bins.apply(lambda x: f"{int(x.left)}–{int(x.right)}")
+                            summary = temp.groupby("bin",observed=True)[col].mean().reset_index()
+                            fig = px.bar(summary, x="bin", y=col)
+
+                        fig.update_layout(
+                            template="plotly_dark",
+                            margin=dict(l=10, r=10, t=10, b=10),
+                            height=260
+                        )
+
+                        chart_key = f"plot_{selected_col}_{col}_{chart_type}"
+
+                        st.plotly_chart(
+                            fig,
+                            width="stretch",
+                            key=chart_key
+                        )
+
+                        # -------- EXPLAIN RELATION BUTTON --------
+                        relationship_key = f"{selected_col}_{col}"
+                        if st.button(
+                            "🔍 Explain Relation",
+                            key=f"explain_relation_{relationship_key}",
+                            use_container_width=True
+                        ):
+                            st.session_state.active_relationship_explanation = relationship_key
+                            st.rerun()
+
+                        # -------- QUICK INSIGHT (SHOWN ONLY WHEN BUTTON CLICKED) --------
+                        if st.session_state.active_relationship_explanation == relationship_key:
+                            corr_value = processed_df[[selected_col, col]].corr().iloc[0, 1]
+                            insight_text = generate_plot_insight(selected_col, col, corr_value)
+                            
+                            # Convert markdown bullet points to HTML format
+                            insight_lines = insight_text.strip().split('\n')
+                            html_bullets = []
+                            for line in insight_lines:
+                                line = line.strip()
+                                if line and line.startswith('•'):
+                                    # Remove the bullet and convert markdown to HTML
+                                    content = line[1:].strip()
+                                    # Convert **text** to <strong>text</strong>
+                                    content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
+                                    html_bullets.append(f'<li style="margin-bottom: 10px; padding-left: 4px;">{content}</li>')
+                            
+                            formatted_insight = '<ul style="margin: 0; padding-left: 20px; list-style-type: none;">' + ''.join(html_bullets) + '</ul>'
+                            
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    background: linear-gradient(135deg, #111827, #1f2937);
+                                    border: 2px solid #22c55e;
+                                    border-radius: 12px;
+                                    padding: 20px;
+                                    margin-top: 12px;
+                                    margin-bottom: 12px;
+                                    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.15);
+                                ">
+                                    <h5 style="color: #22c55e; margin-bottom: 16px; font-size: 16px; font-weight: 600;">
+                                        📊 Relationship Analysis: {selected_col.replace('_',' ').title()} vs {col.replace('_',' ').title()}
+                                    </h5>
+                                    <div style="color: #e5e7eb; line-height: 1.8; font-size: 14px;">
+                                        {formatted_insight}
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Category-wise Forecast
+        elif st.session_state.active_sidebar_page == "category_forecast":
+            st.header("📦 Category-wise Forecast")
+            
+            st.markdown("## 🔧 Forecast Filters")
+            
+            selected_category = st.selectbox(
+                "Select Product Category",
+                processed_df["product_category"].unique(),
+                key="category_forecast_selectbox"
+            )
+            
+            st.divider()
+            
+            st.subheader(f"Forecast for: {selected_category}")
+
+            @st.cache_data(show_spinner=False)
+            def get_category_forecast(df, category, days=60):
+                return category_wise_forecast(df, category, days)
+
+            category_forecast = get_category_forecast(
+                processed_df, selected_category
+            )
+
+            with st.expander("ℹ️ How to interpret category-wise forecast"):
+                st.write(
+                    """
+                    This chart isolates demand for the selected product category.
+                    It helps compare how different categories respond to
+                    pricing, discounts, and marketing activity.
+                    """
                 )
 
-                explanation = explain_chart(
-            x_col=explain_x,
-            y_col=explain_y,
-            # chart_type="Relationship Analysis",
-            correlation=analysis["correlation"],
-            strength=analysis["strength"],
-            direction=analysis["direction"],
-            causal_statement=analysis["causal_statement"]
-        )
-
-
-
-
-                st.subheader("📘 Explanation (Plain English)")
-                st.write(explanation)
-
-
-        # ---------------- SIDEBAR CONTROLS ----------------
-        st.sidebar.markdown("## 🔧 Forecast Filters")
-        st.sidebar.markdown("---")
-
-
-        selected_category = st.sidebar.selectbox(
-            "Select Product Category",
-            processed_df["product_category"].unique()
-        )
-
-        discount_change = st.sidebar.slider(
-            "Increase Discount (%)",
-            min_value=0,
-            max_value=50,
-            value=0
-        ) / 100
-
-        marketing_change = st.sidebar.slider(
-            "Increase Marketing Spend (%)",
-            min_value=0,
-            max_value=100,
-            value=0
-        ) / 100
-
-        # ---------------- CATEGORY-WISE FORECAST ----------------
-        st.subheader(f"📦 Category-wise Forecast: {selected_category}")
-
-        @st.cache_data(show_spinner=False)
-        def get_category_forecast(df, category, days=60):
-            return category_wise_forecast(df, category, days)
-
-        # category_forecast = category_wise_forecast(
-        #     processed_df,
-        #     selected_category
-        # )
-        category_forecast = get_category_forecast(
-            processed_df, selected_category
-        )
-
-
-        with st.expander("ℹ️ How to interpret category-wise forecast"):
-            st.write(
-                """
-                This chart isolates demand for the selected product category.
-                It helps compare how different categories respond to
-                pricing, discounts, and marketing activity.
-                """
+            fig_category = px.line(
+                category_forecast,
+                x="ds",
+                y="yhat",
+                title=f"Forecast for {selected_category}",
+                labels={"ds": "Date", "yhat": "Units Sold"},
             )
 
-        fig_category = px.line(
-            category_forecast,
-            x="ds",
-            y="yhat",
-            title=f"Forecast for {selected_category}",
-            labels={"ds": "Date", "yhat": "Units Sold"},
-        )
+            fig_category.update_traces(
+                hovertemplate="Date: %{x}<br>Units Sold: %{y}<extra></extra>"
+            )
 
-        fig_category.update_traces(
-            hovertemplate="Date: %{x}<br>Units Sold: %{y}<extra></extra>"
-        )
+            st.plotly_chart(fig_category, width="stretch")
 
-        st.plotly_chart(fig_category, width="stretch")
-
-
-        # ---------------- GROWTH VS FORECAST OUTLOOK ----------------
-        st.divider()
-        st.header("📈 Growth vs Forecast Outlook")
-
-        st.caption(
-            "Combines recent growth momentum with forward-looking demand forecasts."
-        )
-
-        # forecast_summary = []
-
-        # for category in growth_df["product_category"]:
-        #     cat_forecast = category_wise_forecast(
-        #         processed_df,
-        #         category,
-        #         days=30
-        #     )
-
-        #     avg_future_demand = cat_forecast["yhat"].tail(30).mean()
-        #     recent_growth = growth_df.loc[
-        #         growth_df["product_category"] == category,
-        #         "Growth %"
-        #     ].values[0]
-
-        #     forecast_summary.append({
-        #         "Category": category,
-        #         "Recent Growth (%)": recent_growth,
-        #         "Avg Forecast Demand (30d)": avg_future_demand
-        #     })
-
-        # forecast_summary_df = pd.DataFrame(forecast_summary)
-        # @st.cache_data(show_spinner=False)
-        # def compute_growth_forecast_summary(processed_df, growth_df):
-        #     summary = []
-        #     for category in growth_df["product_category"]:
-        #         forecast = category_wise_forecast(processed_df, category, days=30)
-        #         summary.append({
-        #             "Category": category,
-        #             "Recent Growth (%)": growth_df.loc[
-        #                 growth_df["product_category"] == category, "Growth %"
-        #             ].values[0],
-        #             "Avg Forecast Demand (30d)": forecast["yhat"].tail(30).mean()
-        #         })
-        #     return pd.DataFrame(summary)
-
-
-        # fig_combo = px.scatter(
-        #     summary,
-        #     x="Recent Growth (%)",
-        #     y="Avg Forecast Demand (30d)",
-        #     text="Category",
-        #     size="Avg Forecast Demand (30d)",
-        #     color="Recent Growth (%)",
-        #     color_continuous_scale=["#ef4444", "#f59e0b", "#22c55e"],
-        #     title="Category Growth vs Forecasted Demand"
-        # )
-
-        # fig_combo.update_traces(textposition="top center")
-        # fig_combo.update_layout(template="plotly_dark", height=480)
-
-        # st.plotly_chart(fig_combo, width="stretch")
-        @st.cache_data(show_spinner=False)
-        def build_growth_forecast_df(processed_df, growth_df):
-            rows = []
-
-            for category in growth_df["product_category"]:
-                cat_forecast = category_wise_forecast(
-                    processed_df, category, days=30
+        # What-If Scenario Analysis
+        elif st.session_state.active_sidebar_page == "what_if":
+            st.header("🔮 What-If Scenario Analysis")
+            
+            st.markdown("## 🔧 Forecast Filters")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                discount_change = st.slider(
+                    "Increase Discount (%)",
+                    min_value=0,
+                    max_value=50,
+                    value=0,
+                    key="what_if_discount"
+                ) / 100
+            
+            with col2:
+                marketing_change = st.slider(
+                    "Increase Marketing Spend (%)",
+                    min_value=0,
+                    max_value=100,
+                    value=0,
+                    key="what_if_marketing"
+                ) / 100
+            
+            st.divider()
+            
+            @st.cache_data(show_spinner=False)
+            def get_what_if_forecast(_model, prophet_df, d_change, m_change):
+                return what_if_forecast(
+                    _model,
+                    prophet_df,
+                    discount_change=d_change,
+                    marketing_change=m_change
                 )
 
-                rows.append({
-                    "Category": category,
-                    "Recent Growth (%)": growth_df.loc[
-                        growth_df["product_category"] == category,
-                        "Growth %"
-                    ].values[0],
-                    "Avg Forecast Demand (30d)": cat_forecast["yhat"].tail(30).mean()
-                })
-
-            return pd.DataFrame(rows)
-
-
-        forecast_summary_df = build_growth_forecast_df(
-            processed_df, growth_df
-        )
-
-        # 🔒 SAFETY CHECK (VERY IMPORTANT)
-        st.write("Debug – Forecast Summary Preview")
-        st.dataframe(forecast_summary_df)
-
-        fig_combo = px.scatter(
-            forecast_summary_df,
-            x="Recent Growth (%)",
-            y="Avg Forecast Demand (30d)",
-            text="Category",
-            size="Avg Forecast Demand (30d)",
-            color="Recent Growth (%)",
-            color_continuous_scale=["#ef4444", "#f59e0b", "#22c55e"],
-            title="Category Growth vs Forecasted Demand"
-        )
-
-        fig_combo.update_traces(textposition="top center")
-        fig_combo.update_layout(template="plotly_dark", height=480)
-
-        st.plotly_chart(fig_combo, width="stretch")
-
-
-        # ---------------- WHAT-IF ANALYSIS ----------------
-        st.subheader("🔮 What-If Scenario Analysis")
-        @st.cache_data(show_spinner=False)
-        def get_what_if_forecast(_model, prophet_df, d_change, m_change):
-            return what_if_forecast(
-                _model,
-                prophet_df,
-                discount_change=d_change,
-                marketing_change=m_change
+            what_if = get_what_if_forecast(
+                model, prophet_df, discount_change, marketing_change
             )
 
+            with st.expander("ℹ️ What-if scenario explanation"):
+                st.write(
+                    """
+                    This simulation shows **expected demand changes** if you modify
+                    discount or marketing spend.
+                    - Baseline: last known real values
+                    - Scenario: adjusted values from sliders
+                    """
+                )
 
-        # what_if = what_if_forecast(
-        #     model,
-        #     prophet_df,
-        #     discount_change=discount_change,
-        #     marketing_change=marketing_change
-        # )
-        what_if = get_what_if_forecast(
-            model, prophet_df, discount_change, marketing_change
-        )
-
-
-        with st.expander("ℹ️ What-if scenario explanation"):
-            st.write(
-                """
-                This simulation shows **expected demand changes** if you modify
-                discount or marketing spend.
-                - Baseline: last known real values
-                - Scenario: adjusted values from sliders
-                """
+            fig_whatif = px.line(
+                what_if,
+                x="ds",
+                y="yhat",
+                title="What-If Scenario Forecast",
+                labels={"ds": "Date", "yhat": "Units Sold"},
             )
 
-        fig_whatif = px.line(
-            what_if,
-            x="ds",
-            y="yhat",
-            title="What-If Scenario Forecast",
-            labels={"ds": "Date", "yhat": "Units Sold"},
-        )
+            fig_whatif.update_traces(
+                hovertemplate="Date: %{x}<br>Projected Units Sold: %{y}<extra></extra>"
+            )
 
-        fig_whatif.update_traces(
-            hovertemplate="Date: %{x}<br>Projected Units Sold: %{y}<extra></extra>"
-        )
+            st.plotly_chart(fig_whatif, width="stretch")
 
-        st.plotly_chart(fig_whatif, width="stretch")
+        # LLM Relationship Explainer
+        elif st.session_state.active_sidebar_page == "llm_relationship":
+            st.markdown("""
+            <div style="background:black;padding:20px;border-radius:12px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.08);">
+            <h2>🤖 LLM Relationship Explainer</h2>
+            <p style="color:#6b7280;">
+            Data-driven explanation of relationships for business decision-making
+            </p>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # ---------------- LLM Q&A (UNCHANGED) ----------------
-        st.divider()
-        st.subheader("🤖 Ask Business Questions")
-        st.caption("Click a question to get instant insights. Custom questions are optional.")
+            st.caption(
+                "Select any two variables to get a clear, data-driven explanation "
+                "of their relationship."
+            )
 
-        # ---------- PRESET QUESTIONS ----------
-        preset_questions = {
-            "📈 Overall sales trend & confidence":
-                "What is the overall sales trend and how confident is the forecast?",
-            "💰 Price impact on demand":
-                "How does price affect units sold in the short and long term?",
-            "🏷️ Discount effectiveness":
-                "Does increasing discount significantly improve sales volume?",
-            "📢 Marketing ROI":
-                "How effective is marketing spend in driving additional sales?",
-            "🔮 Next 30-day outlook":
-                "What should the business expect in the next 30 days?"
-        }
+            numeric_cols = ["units_sold", "price", "discount", "marketing_spend"]
+            col1, col2 = st.columns(2)
 
-        for label, question_text in preset_questions.items():
-            if st.button(label, key=f"preset_{label}"):
-                answer = ask_llm(
-                    question_text,
+            with col1:
+                explain_x = st.selectbox(
+                    "Select X variable",
+                    numeric_cols,
+                    key="llm_explain_x"
+                )
+
+            with col2:
+                explain_y = st.selectbox(
+                    "Select Y variable",
+                    numeric_cols,
+                    key="llm_explain_y"
+                )
+
+            if explain_x == explain_y:
+                st.warning("Please select two different variables.")
+            else:
+                if st.button("Explain Relationship", key="llm_explain_btn"):
+
+                    # -------- CORRELATION (DATA-DRIVEN) --------
+                    analysis = analyze_relationship(
+                        processed_df,
+                        explain_x,
+                        explain_y
+                    )
+
+                    st.markdown(
+                        generate_plot_insight(explain_x, explain_y, analysis["correlation"])
+                    )
+
+                    explanation = explain_chart(
+                        x_col=explain_x,
+                        y_col=explain_y,
+                        correlation=analysis["correlation"],
+                        strength=analysis["strength"],
+                        direction=analysis["direction"],
+                        causal_statement=analysis["causal_statement"]
+                    )
+
+                    st.subheader("📘 Explanation (Plain English)")
+                    st.write(explanation)
+
+        # Executive Summary
+        elif st.session_state.active_sidebar_page == "executive_summary":
+            st.header("🧠 Executive Summary")
+
+            st.caption(
+                "Click to generate an AI-driven executive summary. "
+            )
+
+            if st.button("📌 Generate Executive Summary", key="exec_summary_btn"):
+
+                summary = ask_llm(
+                    """
+                You are a senior business analyst preparing an executive briefing for leadership.
+
+                TASK:
+                Generate a single executive summary paragraph strictly based on data, forecasts, and model performance.
+
+                MANDATORY DATA POINTS (ALL MUST BE USED):
+                - Overall sales trend direction
+                - Short-term forecast confidence based on MAE and RMSE
+                - Long-term forecast uncertainty
+                - Impact of price, discount, and marketing on demand
+                - Business suitability of the model for planning decisions
+
+                CONTEXT:
+                - Forecasting model: Prophet with regressors
+                - Model accuracy metrics: MAE and RMSE (lower is better)
+                - Forecast uncertainty increases with time horizon
+                - Relationships represent correlation, not causation
+
+                STRICT OUTPUT RULES:
+                - EXACTLY 70–90 words
+                - ONE paragraph only
+                - No bullet points
+                - Executive, analytical tone
+                - No generic phrases
+                - No disclaimers like "data not available"
+                - Do not explain methodology
+                - Focus on implications and decisions
+
+                AUDIENCE:
+                C-level executives and senior management
+                """,
                     insights,
                     df=processed_df,
                     eval_metrics=eval_metrics
                 )
-                st.markdown(render_confidence_text(answer), unsafe_allow_html=True)
-                st.divider()
 
-        # ---------- OPTIONAL CUSTOM QUESTION ----------
-        st.markdown("### ✍️ Ask a custom question (optional)")
+                st.markdown(summary)
 
-        custom_question = st.text_input(
-            "Type your business question",
-            placeholder="e.g. What happens if marketing spend increases by 20% next month?"
-        )
-        if len(custom_question.strip()) < 5:
-            st.warning("Please ask a meaningful business question.")
-        else:
-            if st.button("Ask AI", key="btn_custom_question") and custom_question.strip():
-                answer = ask_llm(
-                    custom_question,
-                    insights,
-                    df=processed_df,
-                    eval_metrics=eval_metrics
+            with st.expander("📉 Understanding forecast uncertainty"):
+                st.write(
+                    """
+                    Prophet forecasts include **uncertainty intervals**:
+
+                    - **Lower bound (yhat_lower)**: Conservative estimate  
+                    - **Upper bound (yhat_upper)**: Optimistic estimate  
+                    - **Actual demand is likely to fall within this range**
+
+                    Wider bands = higher uncertainty  
+                    Narrow bands = more stable demand pattern
+                    """
                 )
-                st.markdown(render_confidence_text(answer), unsafe_allow_html=True)
 
-            # model performance    
+        # Model Performance Explained
+        elif st.session_state.active_sidebar_page == "model_performance":
             st.markdown("### 📐 Model Performance")
 
             with st.container():
                 col1, col2 = st.columns(2)
                 col1.metric("MAE", eval_metrics["MAE"])
                 col2.metric("RMSE", eval_metrics["RMSE"])
-
 
             with st.expander("🤖 Model Performance Explained"):
                 st.caption("Click a button to get an AI explanation.")
@@ -1160,4 +1411,107 @@ if st.session_state.intro_step >= 3:
                         )
                         st.markdown(render_confidence_text(explanation), unsafe_allow_html=True)
 
+        # Ask Business Questions
+        elif st.session_state.active_sidebar_page == "ask_questions":
+            st.header("🤖 Ask Business Questions")
+            st.caption("Click a question to get instant insights. Custom questions are optional.")
 
+            # ---------- PRESET QUESTIONS ----------
+            preset_questions = {
+                "📈 Overall sales trend & confidence":
+                    "What is the overall sales trend and how confident is the forecast?",
+                "💰 Price impact on demand":
+                    "How does price affect units sold in the short and long term?",
+                "🏷️ Discount effectiveness":
+                    "Does increasing discount significantly improve sales volume?",
+                "📢 Marketing ROI":
+                    "How effective is marketing spend in driving additional sales?",
+                "🔮 Next 30-day outlook":
+                    "What should the business expect in the next 30 days?"
+            }
+
+            # Display all preset questions in one row
+            question_cols = st.columns(len(preset_questions))
+            for idx, (label, question_text) in enumerate(preset_questions.items()):
+                with question_cols[idx]:
+                    if st.button(label, key=f"preset_{label}", use_container_width=True):
+                        st.session_state.active_question_answer = {
+                            "question": question_text,
+                            "label": label
+                        }
+                        st.rerun()
+
+            # Display answer box below questions (only when a question is clicked)
+            if st.session_state.active_question_answer is not None:
+                st.markdown("<br>", unsafe_allow_html=True)
+                question_data = st.session_state.active_question_answer
+                
+                # Check if answer is already cached
+                answer_key = f"answer_{question_data['label']}"
+                if answer_key not in st.session_state:
+                    with st.spinner("Generating answer..."):
+                        answer = ask_llm(
+                            question_data["question"],
+                            insights,
+                            df=processed_df,
+                            eval_metrics=eval_metrics
+                        )
+                        st.session_state[answer_key] = answer
+                else:
+                    answer = st.session_state[answer_key]
+                
+                st.markdown(
+                    f"""
+                    <div style="
+                        background: linear-gradient(135deg, #111827, #1f2937);
+                        border: 2px solid #22c55e;
+                        border-radius: 16px;
+                        padding: 24px;
+                        margin: 20px 0;
+                        box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+                    ">
+                        <h4 style="color: #22c55e; margin-bottom: 12px;">💡 {question_data["label"]}</h4>
+                        <p style="color: #e5e7eb; line-height: 1.6; font-size: 15px;">{render_confidence_text(answer)}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            st.divider()
+
+            # ---------- OPTIONAL CUSTOM QUESTION ----------
+            st.markdown("### ✍️ Ask a custom question (optional)")
+
+            custom_question = st.text_input(
+                "Type your business question",
+                placeholder="e.g. What happens if marketing spend increases by 20% next month?",
+                key="custom_question_input"
+            )
+            if len(custom_question.strip()) < 5:
+                st.warning("Please ask a meaningful business question.")
+            else:
+                if st.button("Ask AI", key="btn_custom_question") and custom_question.strip():
+                    answer = ask_llm(
+                        custom_question,
+                        insights,
+                        df=processed_df,
+                        eval_metrics=eval_metrics
+                    )
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background: linear-gradient(135deg, #111827, #1f2937);
+                            border: 2px solid #22c55e;
+                            border-radius: 16px;
+                            padding: 24px;
+                            margin: 20px 0;
+                            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+                        ">
+                            <h4 style="color: #22c55e; margin-bottom: 12px;">💡 Custom Question</h4>
+                            <p style="color: #e5e7eb; line-height: 1.6; font-size: 15px;">{render_confidence_text(answer)}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+        st.markdown("</div>", unsafe_allow_html=True)

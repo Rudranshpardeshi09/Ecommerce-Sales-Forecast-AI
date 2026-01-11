@@ -137,3 +137,17 @@ Use these to let the LLM lead.
 “Explain what the data does NOT support.”
 
 “Provide a data-backed recommendation in one paragraph.”
+
+
+
+1.the growth_trajectory is shoowing nan% why is this happenig fix this with a value .
+2.now in the category-wisef forecast section i want:-
+a. how to interpret category-wisef forecast section should be written by you (think as a business analys and explain this in simple terms that a normal human can understand the graph after reading it).
+b. the forcast graph for different categories should contain :-
+  a button that is named explain graph in which ,there should be a brief description of the trends of the selected category graph. (what a business analyst will see iand try to find in the graph, think of it as a business alayst point of view and generate insights. ) according to the graph. the insights will be displayed in proper box and with professioanl ui
+
+3. now in what if scenario i want :-
+a. what-if scenario explanation section should be written by you (think as a business analys and explain this in simple terms that a normal human can understand the graph after reading it).
+b. the what-if scenario forcast graph for different categories should contain :-
+  a button that is named explain graph in which ,there should be a brief description of the trends of the selected category graph. (what a business analyst will see iand try to find in the graph, think of it as a business alayst point of view and generate insights. ) according to the graph. the insights will be displayed in proper box and with professioanl ui.
+4. in the exectuive summary, the understading forecast uncertainty should be explined by you (think as a business analyst , keep factual and data dependent approach and explain this in simple terms that a normal human can understand ).
