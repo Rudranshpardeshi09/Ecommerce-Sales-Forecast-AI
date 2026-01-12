@@ -866,7 +866,6 @@ copies of the Software...
 
 <div align="center">
 
-**Made with ❤️ by [Your Name]**
 
 [⬆ Back to Top](#sales-forecast-ai)
 
