@@ -323,7 +323,7 @@ st.set_page_config(
 )
 
 # ---------------- SIDEBAR NAVIGATION ----------------
-st.sidebar.markdown("## 📋 Navigation")
+st.sidebar.markdown("## More Options")
 st.sidebar.markdown("---")
 
 # Sidebar buttons
@@ -345,7 +345,7 @@ for page_name, page_key in sidebar_pages.items():
 st.sidebar.markdown("---")
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-# Close button at bottom - styled red
+# Close button at bottom 
 st.sidebar.markdown("""
     <style>
     .stButton > button[kind=""] {
@@ -826,9 +826,9 @@ if st.session_state.intro_step >= 3:
             unsafe_allow_html=True
         )
 
-    # ================= COMPREHENSIVE INSIGHTS DASHBOARD =================
+    # ================= INSIGHTS DASHBOARD =================
     st.divider()
-    st.header("📊 Comprehensive Sales & Marketing Insights Dashboard")
+    st.header("📊 Sales & Marketing Insights Dashboard")
     st.caption("Complete analysis of sales trends, customer segments, marketing effectiveness, and product performance")
     
     # -------- Sales & Category Analysis (3x3 Grid) --------
@@ -1270,7 +1270,7 @@ if st.session_state.intro_step >= 3:
 
             chart_type = st.radio(
                 "Select visualization type",
-                ["Bar (Binned Average)", "Line (Trend)", "Histogram",  "Scatter", "Density"],
+                ["Bar", "Line (Trend)", "Histogram",  "Scatter", "Density"],
                 horizontal=True,
                 key="data_relationships_chart_type"
             )
@@ -1818,7 +1818,7 @@ if st.session_state.intro_step >= 3:
             st.markdown("""
             <div style="background:black;padding:20px;border-radius:12px;
             box-shadow:0 4px 10px rgba(0,0,0,0.08);">
-            <h2>🤖 LLM Relationship Explainer</h2>
+            <h2>🤖 AI Relationship Explainer</h2>
             <p style="color:#6b7280;">
             Data-driven explanation of relationships for business decision-making
             </p>
@@ -2073,7 +2073,6 @@ if st.session_state.intro_step >= 3:
             st.divider()
 
             # ---------- OPTIONAL CUSTOM QUESTION ----------
-            st.markdown("### ✍️ Ask a custom question (optional)")
 
             custom_question = st.text_input(
                 "Type your business question",
